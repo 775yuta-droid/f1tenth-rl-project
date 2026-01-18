@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Models (大きいので基本は上げない)
+models/*.zip
+
+# OS
+.DS_Store
+.venv

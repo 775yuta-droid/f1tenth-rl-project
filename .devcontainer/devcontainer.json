@@ -1,0 +1,14 @@
+{
+    "name": "F1TENTH RL Dev",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "f1-sim",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    }
+}
