@@ -64,7 +64,7 @@ GPUを活用し、
     rm -f models/ppo_f1_final.zip
     python3 scripts/train.py
 
-学習完了時に **システムベルが鳴ります**。
+学習完了時に **システムベルが鳴る**。
 
 ---
 
@@ -94,6 +94,5 @@ GPUを活用し、
 
 Docker環境で発生する  
 **「dubious ownership」エラー**は、  
-Dockerfile 内の `safe.directory` 設定により自動解決されます。
+Dockerfile 内の `safe.directory` 設定により自動解決される。
 
-EOF
