@@ -18,48 +18,48 @@ class F1TenthRL(gym.Env):
         return obs['scans'][0].astype(np.float32)
 
     def step(self, action):
-        steer = action[0] * 0.4
-        speed = 3.5
+        # 学習時と同じ設定（クイック旋回・速度2.5）
+        steer = action[0] * 0.8 
+        speed = 2.5
         obs, reward, done, info = self.env.step(np.array([[steer, speed]]))
         return obs['scans'][0].astype(np.float32), reward, done, info
 
 def main():
     map_path = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
     env = F1TenthRL(map_path)
-    model = PPO.load("models/ppo_f1_final.zip")
+    model = PPO.load("models/ppo_f1_final")
     
     obs = env.reset()
     frames = []
 
-    print("録画中... 最初のスタイルに戻してズームを最適化しました。")
+    print("録画中... (広角・長距離視点)")
 
-    for i in range(1200): # 少し長めに録画
+    for i in range(2000): # カーブの先まで撮るために延長
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
         
-        # 描画設定（最初のスタイルを継承）
-        plt.figure(figsize=(6, 6))
+        plt.figure(figsize=(7, 7))
         plt.clf()
-        plt.gca().set_facecolor('black')
+        plt.gca().set_facecolor('#0a0a0a') # 真っ黒より少しグレーで見やすく
         
-        # LiDARの点を描画 (水色)
-        # 現在の車の向きに合わせて回転させる必要がない、最初の「相対座標」表示
+        # LiDAR描画
         angles = np.linspace(-np.pi*3/4, np.pi*3/4, 1080)
         x = obs * np.cos(angles)
         y = obs * np.sin(angles)
-        plt.scatter(x, y, s=2, c='cyan', alpha=0.8) # 壁
         
-        # 自車を描画 (赤い三角)
-        plt.scatter(0, 0, marker='^', c='red', s=150)
+        # 遠くの点まで映るようにドットサイズを微小化(s=1)
+        plt.scatter(x, y, s=1, c='cyan', alpha=0.9) 
         
-        # ズーム倍率を調整（ここが見やすさの鍵）
-        plt.xlim(-8, 8) 
-        plt.ylim(-2, 12) # 前方を広く見せる
+        # 自車 (赤い大きな三角)
+        plt.scatter(0, 0, marker='^', c='red', s=200)
         
-        plt.title(f"AI Vision - Step: {i}", color='white')
-        plt.axis('off') # 余計なメモリ（軸）を消してスッキリさせる
+        # --- 表示範囲を大幅に拡大 ---
+        plt.xlim(-15, 15) # 左右15m
+        plt.ylim(-5, 25)  # 前方25m、後方5mまで表示
         
-        # 画像に変換
+        plt.title(f"F1Tenth AI - Step: {i}", color='white')
+        plt.axis('off')
+        
         fig = plt.gcf()
         fig.canvas.draw()
         frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
@@ -68,11 +68,11 @@ def main():
         plt.close()
         
         if done:
-            print(f"終了：{i}ステップ")
+            print(f"衝突または終了：{i}ステップ")
             break
 
-    imageio.mimsave("run_simulation.gif", frames, fps=30)
-    print("完了！一番見やすかったスタイルで保存しました。")
+    imageio.mimsave("run_simulation_wide.gif", frames, fps=30)
+    print("完了！ 'run_simulation_wide.gif' を確認してください。")
 
 if __name__ == '__main__':
     main()
