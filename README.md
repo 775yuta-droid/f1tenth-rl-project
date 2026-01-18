@@ -1,0 +1,98 @@
+cat << 'EOF' > README.md
+# F1Tenth AI Racing Project
+**Deep Reinforcement Learning × LiDAR**
+
+F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに自律走行を行う  
+AI（PPO: Proximal Policy Optimization）を開発するプロジェクトです。
+
+---
+
+## 🏎️ プロジェクト概要
+
+本プロジェクトでは、AIにコース形状を学習させ、  
+**壁に衝突することなく高速で周回する自律走行**を目指します。
+
+最大の特徴は、
+
+> **「壁の隙間を道と誤認してコース外へ迷い込む」**
+
+という強化学習特有の課題を、  
+**報酬設計（Reward Engineering）によって解決**した点にあります。
+
+---
+
+## 🛠️ 環境構築（Docker / NVIDIA GPU対応）
+
+GPUを活用し、  
+**学習・描画・GIF生成を安定させるための決定版Dockerfile**を使用します。
+
+### 1. Dockerイメージのビルド
+
+    docker build -t f1tenth_ai .
+
+### 2. コンテナの起動（GPU有効）
+
+    docker run -it --rm --gpus all -v $(pwd):/workspace f1tenth_ai
+
+---
+
+## 📂 ファイル構成と役割
+
+- **Dockerfile**  
+  NVIDIA GPU対応、FFmpeg（動画生成）、Git safe.directory 設定済み
+
+- **scripts/train.py**  
+  学習実行スクリプト  
+  路地回避のための **最小距離報酬（min_front_dist）** を実装
+
+- **scripts/enjoy.py**  
+  評価・可視化スクリプト  
+  前方25m・左右15mの **広角視点** で走行をGIF化
+
+- **models/**  
+  学習済みPPOモデルの保存先
+
+- **run_simulation_final.gif**  
+  最新の学習結果によるデモ走行
+
+---
+
+## 🚀 実行方法
+
+### 学習（Training）
+
+    rm -f models/ppo_f1_final.zip
+    python3 scripts/train.py
+
+学習完了時に **システムベルが鳴る**。
+
+---
+
+### 評価と録画（Evaluation）
+
+    python3 scripts/enjoy.py
+
+---
+
+## 📈 報酬設計（路地回避ロジック）
+
+### 隙間への迷い込み対策
+- 前方中央20度の **平均距離** を廃止
+- **最小距離（min_front_dist）** を報酬に採用
+- 細い隙間より **道幅のある本線** を選択
+
+### 旋回性能向上
+- ステアリング感度：**0.8**
+- 速度固定：**2.5**
+
+### コースアウト抑制
+- 衝突ペナルティ：**-200.0**
+
+---
+
+## 🔧 トラブルシューティング
+
+Docker環境で発生する  
+**「dubious ownership」エラー**は、  
+Dockerfile 内の `safe.directory` 設定により自動解決される。
+
