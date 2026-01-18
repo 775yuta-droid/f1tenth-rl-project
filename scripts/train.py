@@ -63,6 +63,7 @@ class F1TenthRL(gym.Env):
         return obs['scans'][0].astype(np.float32), reward, done, info
 
 def main():
+    # 正しい階層（gymが2回重なっている方）かつ 拡張子なしで指定
     map_path = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
     if not os.path.exists("models"):
         os.makedirs("models")

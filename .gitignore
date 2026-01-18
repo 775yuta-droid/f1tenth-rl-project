@@ -27,4 +27,5 @@ logs/
 Thumbs.db
 
 # --- Docker関連 ---
-#.devcontainer/ (※チームで共有する場合は除外しない)
+#.devcontainer/ (※チームで共有する場合は除外しない)models/*.zip
+models/
