@@ -1,0 +1,36 @@
+# 1. NVIDIA GPU対応イメージを維持
+FROM nvidia/cuda:11.8.0-runtime-ubuntu20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 2. 必要なツール、Python、および「動画生成用」ライブラリのインストール
+RUN apt-get update && apt-get install -y \
+    python3-pip python3-dev git \
+    libgl1-mesa-glx libosmesa6-dev freeglut3-dev libglew-dev \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# pipのバージョン固定
+RUN pip3 install "pip<24.1"
+
+# 3. 強化学習 + 動画生成 + 可視化ライブラリのインストール
+RUN pip3 install \
+    gym==0.19.0 \
+    stable-baselines3[extra] \
+    shimmy gymnasium \
+    matplotlib imageio imageio-ffmpeg pyyaml
+
+# 4. f1tenth_gymのインストール（パスを固定）
+RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
+RUN cd /opt/f1tenth_gym && pip3 install -e .
+
+# 5. Gitのセキュリティ設定（"dubious ownership" エラー対策）
+RUN git config --global --add safe.directory /workspace
+
+WORKDIR /workspace
+
+# 6. 描画エラー防止用の環境変数
+ENV SDL_VIDEODRIVER=dummy
+ENV PYTHONPATH=/workspace:$PYTHONPATH
+
+CMD ["/bin/bash"]
