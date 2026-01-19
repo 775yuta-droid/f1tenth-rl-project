@@ -21,18 +21,34 @@ AI（PPO: Proximal Policy Optimization）を開発するプロジェクトです
 ---
 
 ## 🛠️ 環境構築（Docker / NVIDIA GPU対応）
+**前提環境**
+WSL環境(Ubuntu20.04L TS)
 
 GPUを活用し、  
 **学習・描画・GIF生成を安定させるための決定版Dockerfile**を使用します。
 
-### 1. Dockerイメージのビルド
+### 1. gitを利用してcloneする
 
-    docker build -t f1tenth_ai .
+    git clone https://github.com/775yuta-droid/f1tenth-rl-project.git
+    cd f1tenth-rl-project
 
-### 2. コンテナの起動（GPU有効）
+### 2. コンテナイメージをbuild
 
-    docker run -it --rm --gpus all -v $(pwd):/workspace f1tenth_ai
+    docker compose build 
 
+### 3. コンテナのをDockerFileを使用してbuild（GPU有効）
+
+    docker build -t f1-sim .
+    docker run -it --rm --gpus all -v $(pwd):/workspace f1-sim
+---
+
+## 🛠️ 二回目からの起動方法
+### 1. vscodeを開きwslを起動する
+
+### 2. コンテナを起動して中に入る
+
+    docker compose up -d
+    docker compose exec f1-sim bash
 ---
 
 ## 📂 ファイル構成と役割
@@ -44,7 +60,11 @@ GPUを活用し、
   学習実行スクリプト  
   路地回避のための **最小距離報酬（min_front_dist）** を実装
 
-- **scripts/enjoy.py**  
+- **scripts/enjoy^.py**  
+  評価・可視化スクリプト  
+  初期版
+
+- **scripts/enjoy-wide.py**  
   評価・可視化スクリプト  
   前方25m・左右15mの **広角視点** で走行をGIF化
 

@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install "pip<24.1"
 
 # 強化学習ライブラリのインストール
-RUN pip3 install gym==0.19.0 stable-baselines3 shimmy gymnasium
+RUN pip3 install gym==0.19.0 stable-baselines3 shimmy gymnasium imageio imageio-ffmpeg
 
 # f1tenth_gym本体をインストール（コンテナ内の /opt に入れる）
 RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
