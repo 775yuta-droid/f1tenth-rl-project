@@ -50,7 +50,17 @@ GPUを活用し、
     docker compose up -d
     docker compose exec f1-sim bash
 ---
+## 🛠️ 終了方法
+### 1. コンテナの停止
 
+    docker compose down
+
+### 2. Gitに保存
+
+    git add .
+    git commit -m "feat: refine reward function and update dockerfile"
+    git push origin main
+---
 ## 📂 ファイル構成と役割
 
 - **Dockerfile**  
