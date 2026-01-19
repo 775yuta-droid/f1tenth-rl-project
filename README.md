@@ -1,4 +1,3 @@
-cat << 'EOF' > README.md
 # F1Tenth AI Racing Project
 **Deep Reinforcement Learning × LiDAR**
 
@@ -95,4 +94,5 @@ GPUを活用し、
 Docker環境で発生する  
 **「dubious ownership」エラー**は、  
 Dockerfile 内の `safe.directory` 設定により自動解決される。
+
 
