@@ -18,3 +18,4 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+

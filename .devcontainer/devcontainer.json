@@ -1,3 +1,18 @@
+// {
+//     "name": "F1TENTH RL Dev",
+//     "dockerComposeFile": "../docker-compose.yml",
+//     "service": "f1-sim",
+//     "workspaceFolder": "/workspace",
+//     "customizations": {
+//         "vscode": {
+//             "extensions": [
+//                 "ms-python.python",
+//                 "ms-azuretools.vscode-docker"
+//             ]
+//         }
+//     }
+// }
+
 {
     "name": "F1TENTH RL Dev",
     "dockerComposeFile": "../docker-compose.yml",
@@ -7,8 +22,22 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
+                "ms-python.vscode-pylance",
                 "ms-azuretools.vscode-docker"
-            ]
+            ],
+            "settings": {
+                // コンテナ内のPythonをデフォルトにする
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                // インポートエラーを消すためのパス設定
+                "python.analysis.extraPaths": [
+                    "/opt/f1tenth_gym"
+                ],
+                "python.autoComplete.extraPaths": [
+                    "/opt/f1tenth_gym"
+                ]
+            }
         }
-    }
+    },
+    // コンテナ起動後に自動でパスを通すための設定
+    "remoteUser": "root"
 }
