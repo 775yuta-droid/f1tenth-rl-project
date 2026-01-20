@@ -29,7 +29,7 @@ def main():
     output_gif_path = "run_simulation.gif"
 
     env = F1TenthRL(map_path)
-    model = PPO.load("models/ppo_f1_final")
+    model = PPO.load("../models/ppo_f1_final" , device='cpu')#互換性問題の解決のためcpu指定
     
     obs = env.reset()
     frames = []

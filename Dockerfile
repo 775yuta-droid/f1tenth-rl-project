@@ -19,4 +19,6 @@ RUN pip3 install gym==0.19.0 stable-baselines3 shimmy gymnasium imageio imageio-
 RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
 RUN cd /opt/f1tenth_gym && pip3 install -e .
 
+RUN cp /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.pgm /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.png
+
 WORKDIR /workspace

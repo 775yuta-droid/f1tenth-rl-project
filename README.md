@@ -38,8 +38,8 @@ GPUを活用し、
 
 ### 3. コンテナのをDockerFileを使用してbuild（GPU有効）
 
-    docker build -t f1-sim .
-    docker run -it --rm --gpus all -v $(pwd):/workspace f1-sim
+    docker compose up -d
+    docker compose exec f1-sim bash
 ---
 
 ## 🛠️ 二回目からの起動方法

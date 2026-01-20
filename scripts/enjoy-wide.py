@@ -29,10 +29,10 @@ class F1TenthRL(gym.Env):
 def main():
     print("--- AI走行テスト（広角LiDARプロット版）を開始します ---")
     map_path = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
-    output_gif_path = "run_simulation_wide.gif"
+    output_gif_path = "../gif/run_simulation_wide.gif"
 
     env = F1TenthRL(map_path)
-    model = PPO.load("models/ppo_f1_final")
+    model = PPO.load("../models/ppo_f1_final", device='cpu') #互換性問題の解決のためcpu指定
     
     obs = env.reset()
     frames = []
@@ -83,7 +83,7 @@ def main():
 
     if frames:
         print(f"{len(frames)}枚の画像から広角GIFを作成中...")
-        imageio.mimsave(output_gif_path, frames, fps=30) # 滑らかに見えるようFPSを30に
+        imageio.mimsave("run_simulation_wide.gif", frames, fps=30)# 高フレームレートで滑らかに
         print(f"作成完了: {output_gif_path}")
 
 if __name__ == '__main__':
