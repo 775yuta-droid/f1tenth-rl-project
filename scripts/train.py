@@ -15,11 +15,11 @@ class F1TenthRL(gym.Env):
         self.observation_space = gym.spaces.Box(low=0, high=30, shape=(1080,), dtype=np.float32)
 
     # 初期位置をランダムに設定
-    random_seed =  range(0, 10000)
+    #random_seed =  range(0, 10000)
 
     def reset(self):
         # コースのスタート位置をリセット
-        obs, reward, done, info = self.env.reset(np.array([[0.0, np.random.choice(self.random_seed), 0.0]]))
+        obs, reward, done, info = self.env.reset(np.array([[0.0, 0.0, 0.0]]))
         return obs['scans'][0].astype(np.float32)
 
     def step(self, action):
@@ -77,9 +77,14 @@ def main():
     # 学習設定 (device='cpu' で警告を抑制)
     model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.0003, device='cpu')
 
-    print("--- 空間探索モードで学習を開始します (目標: 万回) ---")
-    # 学習回数
-    model.learn(total_timesteps=100000)
+    # 変数に学習回数を設定
+    total_steps = 100000
+
+    print(f"--- 空間探索モードで学習を開始します (目標: {total_steps} 回) ---")
+
+    # 学習回数に変数を渡す
+    model.learn(total_timesteps=total_steps)
+
     
     # モデルの保存
     model.save("../models/ppo_f1_final")
