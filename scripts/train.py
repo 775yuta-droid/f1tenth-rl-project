@@ -22,48 +22,27 @@ class F1TenthRL(gym.Env):
         obs, reward, done, info = self.env.reset(np.array([[0.0, 0.0, 0.0]]))
         return obs['scans'][0].astype(np.float32)
 
-    def step(self, action):
-        # AIの出力を実際の操作量に変換
-        steer = action[0] * 0.4 
-        speed = 3.5  # 止まらないように固定速度を設定
-        
-        obs, reward, done, info = self.env.step(np.array([[steer, speed]]))
-        scans = obs['scans'][0]
-
-        
         
         # 報酬設計: 空間探索を促進する工夫
     def step(self, action):
-        # 1. ステアリング感度を0.4から0.8に強化（よりクイックに曲がる）
         steer = action[0] * 0.8 
-        # 2. 速度を3.5から2.5に落とし、確実に曲がれるようにする
         speed = 2.5  
         
         obs, reward, done, info = self.env.step(np.array([[steer, speed]]))
-        scans = obs['scans'][0]
+        
+        # 正規化（0-30m を 0-1 に）
+        scans = np.clip(obs['scans'][0], 0, 30) / 30.0
 
         if done:
             # 衝突ペナルティをさらに重く変更
             reward = -200.0
+
         else:
-            # 基本の前進報酬
-            reward = 1.0 
-            
-            # 2. 【重要】「道幅」を考慮した前方報酬
-            # 前方 central 20度の範囲の「最小距離」を見ることで、
-            # 狭い隙間に騙されにくくする
-            center_scans = scans[530:550] 
-            min_front_dist = np.min(center_scans)
-            
-            # 広い道なら高い報酬、狭い隙間なら低い報酬
-            reward += min_front_dist * 1.5
+                    # 前方の空きスペースを報酬にする
+                    center_dist = np.min(scans[530:550])
+                    reward = 1.0 + (center_dist * 5.0) # 正規化したので係数を大きくする
 
-            # 3. 左右のバランス報酬（路地の入口を避ける）
-            # 左右に極端に近い壁がある場合はマイナス
-            if np.min(scans[440:640]) < 0.5: # 目の前に壁が迫ったら
-                reward -= 5.0
-
-        return obs['scans'][0].astype(np.float32), reward, done, info
+        return scans.astype(np.float32), reward, done, info 
 
 def main():
     # 正しい階層（gymが2回重なっている方）かつ 拡張子なしで指定
