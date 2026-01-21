@@ -66,11 +66,14 @@ GPUを活用し、
 - **Dockerfile**  
   NVIDIA GPU対応、FFmpeg（動画生成）、Git safe.directory 設定済み
 
+- **scripts/config.py**  
+  報酬設定スクリプト  
+  このファイルからCPUやGPUの設定。報酬関数を設定する
+
 - **scripts/train.py**  
   学習実行スクリプト  
-  路地回避のための **最小距離報酬（min_front_dist）** を実装
 
-- **scripts/enjoy^.py**  
+- **scripts/enjoy.py**  
   評価・可視化スクリプト  
   初期版
 
@@ -93,29 +96,11 @@ GPUを活用し、
     rm -f models/ppo_f1_final.zip
     python3 scripts/train.py
 
-学習完了時に **システムベルが鳴る**。
-
 ---
 
 ### 評価と録画（Evaluation）
 
-    python3 scripts/enjoy.py
-
----
-
-## 📈 報酬設計（路地回避ロジック）
-
-### 隙間への迷い込み対策
-- 前方中央20度の **平均距離** を廃止
-- **最小距離（min_front_dist）** を報酬に採用
-- 細い隙間より **道幅のある本線** を選択
-
-### 旋回性能向上
-- ステアリング感度：**0.8**
-- 速度固定：**2.5**
-
-### コースアウト抑制
-- 衝突ペナルティ：**-200.0**
+    python3 scripts/enjoy-wide.py
 
 ---
 

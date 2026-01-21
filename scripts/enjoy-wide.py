@@ -240,8 +240,13 @@
 #     main()
 
 
+import config # 設定ファイルを読み込み
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+# config.DEVICEが 'cpu' の場合のみ、GPUを隠して見えなくする
+# (これを行わないと、PyTorchがGPUメモリを少し確保してしまい、VRAMを無駄食いすることがあるため)
+if config.DEVICE == "cpu":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import gym
 import f110_gym
@@ -249,7 +254,6 @@ import numpy as np
 from stable_baselines3 import PPO
 import imageio
 import matplotlib.pyplot as plt
-import config # 設定ファイルを読み込み
 
 class F1TenthRL(gym.Env):
     def __init__(self, map_path):
@@ -272,7 +276,7 @@ def main():
     os.makedirs(os.path.dirname(config.GIF_PATH), exist_ok=True)
 
     env = F1TenthRL(config.MAP_PATH)
-    model = PPO.load(config.MODEL_PATH, device='cpu')
+    model = PPO.load(config.MODEL_PATH, device='config.DEVICE')
     
     obs = env.reset()
     frames = []

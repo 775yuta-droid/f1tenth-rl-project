@@ -1,5 +1,20 @@
 import numpy as np
 
+# --- デバイス設定  ---
+# "cuda" : GPUを使用 (NVIDIAのGPUが必要)
+# "cpu"  : CPUを使用
+# "auto" : 利用可能ならGPU、なければCPU (Stable Baselines3の機能)
+#cpuで動かすことを推奨
+DEVICE = "cpu"
+
+# --- 学習ハイパーパラメータ ---
+TOTAL_TIMESTEPS = 100000  # 学習回数
+LEARNING_RATE = 3e-4      # 学習率
+
+# --- ネットワーク構造の設定 ---
+# [64, 64] は 64ユニットの層が2つ。 [256, 256, 256] とすればより深く複雑になります。
+NET_ARCH = [64, 64]
+
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 0.8  # ステアリングの強さ
 MAX_SPEED = 2.5          # 走行速度
@@ -12,7 +27,7 @@ REWARD_FRONT_WEIGHT = 2.0   # 前方空間報酬の重み
 # --- パス設定 ---
 MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
 MODEL_DIR = "../models"
-MODEL_NAME = "ppo_f1_final"
+MODEL_NAME = f"ppo_f1_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
 MODEL_PATH = f"{MODEL_DIR}/{MODEL_NAME}"
 GIF_PATH = "../gif/run_simulation_wide.gif"
 
