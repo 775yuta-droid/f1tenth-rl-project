@@ -1,6 +1,55 @@
+# services:
+#   f1-sim:
+#     build: .
+#     tty: true
+#     stdin_open: true
+#     volumes:
+#       - .:/workspace
+#       - /tmp/.X11-unix:/tmp/.X11-unix
+#     environment:
+#       - DISPLAY=${DISPLAY}
+#       - NVIDIA_VISIBLE_DEVICES=all
+#       - NVIDIA_DRIVER_CAPABILITIES=all
+#     network_mode: host
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: all
+#               capabilities: [gpu]
+
 services:
-  f1-sim:
-    build: .
+  # 【最新環境】RTX 5060 / Ubuntu 22.04 用
+  f1-sim-latest:
+    build:
+      context: .
+      dockerfile: Dockerfile.2204  # 先ほど作成した 22.04 版のファイル名に合わせてください
+    container_name: f1-sim-2204
+    tty: true
+    stdin_open: true
+    volumes:
+      - .:/workspace                  # プログラムファイルをコンテナと共有
+      - /tmp/.X11-unix:/tmp/.X11-unix # 画面表示用 (GUI用)
+    environment:
+      - DISPLAY=${DISPLAY}            # Windows(WSL)の画面出力先
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    network_mode: host                # シミュレータの通信をスムーズにする
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia          # GPUを使用するための設定
+              count: all
+              capabilities: [gpu]
+
+  # 【旧環境】予備として残す場合 (Ubuntu 20.04 など)
+  f1-sim-legacy:
+    build:
+      context: .
+      dockerfile: Dockerfile     # 以前の古いDockerfileをこの名前にリネームして保存
+    container_name: f1-sim-2004
     tty: true
     stdin_open: true
     volumes:
@@ -8,8 +57,6 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
     environment:
       - DISPLAY=${DISPLAY}
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
     network_mode: host
     deploy:
       resources:
@@ -18,4 +65,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-

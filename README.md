@@ -48,7 +48,12 @@ GPUを活用し、
 ### 2. コンテナを起動して中に入る
 
     docker compose up -d
-    docker compose exec f1-sim bash
+    #rtx5060で学習するとき
+    docker compose run f1-sim-latest bash
+    #20.04を使うとき
+    docker compose run f1-sim-legacy bash
+
+
 ---
 ## 🛠️ 終了方法
 ### 1. コンテナの停止
