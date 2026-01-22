@@ -59,11 +59,11 @@ import os
 
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
-DEVICE = "cuda"  # "cpu", "cuda", "auto" から選択可能
+DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 300000  
+TOTAL_TIMESTEPS = 10000
 LEARNING_RATE = 3e-4
 
 # --- ネットワーク構造 ---
@@ -83,7 +83,7 @@ REWARD_SPEED_WEIGHT = 1.0   # 「速く走る」ことに対する報酬の重�
 
 # --- パス設定 ---
 MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
-MODEL_DIR = "../models"
+MODEL_DIR = "/workspace/models"
 # モデル名に設定を反映させて管理しやすくする
 MODEL_NAME = f"ppo_f1_speed_variable_v1"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)

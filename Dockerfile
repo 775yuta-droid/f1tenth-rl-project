@@ -39,7 +39,3 @@ RUN cp /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.pgm /opt/f1tenth_gym/gym/f
 
 # 作業ディレクトリに戻す
 WORKDIR /workspace
-NVIDIA GPU対応
-
-1. ベースイメージを devel 版に変更（RTX 5060/CUDA 12.4対応）
-runtime版ではなくdevel版にすることで、f1tenth_gymのビルドに必要なツールが含まれます
