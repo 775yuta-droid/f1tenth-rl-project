@@ -31,6 +31,9 @@ RUN pip3 install --no-cache-dir \
 # f1tenth_gym のインストール
 # /opt/f1tenth_gym にクローンして編集可能モードでインストール
 RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
+# 自作マップをビルド時に中に入れてしまう
+COPY ./my_maps/my_map.png /opt/f1tenth_gym/gym/f110_gym/envs/maps/
+COPY ./my_maps/my_map.yaml /opt/f1tenth_gym/gym/f110_gym/envs/maps/
 WORKDIR /opt/f1tenth_gym
 RUN pip3 install -e .
 
