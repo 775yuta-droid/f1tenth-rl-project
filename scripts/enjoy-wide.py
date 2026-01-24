@@ -94,7 +94,7 @@ import matplotlib.pyplot as plt
 class F1TenthRL(gym.Env):
     def __init__(self, map_path):
         super(F1TenthRL, self).__init__()
-        self.env = gym.make('f110-v0', map=map_path, num_agents=1)
+        self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1)
         # 2次元に修正 (train.pyと一致させる)
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=0, high=30, shape=(1080,), dtype=np.float32)

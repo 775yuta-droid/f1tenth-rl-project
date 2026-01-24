@@ -85,7 +85,7 @@ class F1TenthRL(gym.Env):
         super(F1TenthRL, self).__init__()
         # 登録名が 'f110-v0' か 'f110_gym:f110-v0' かは環境依存ですが、
         # 手動実行で成功した 'f110-v0' に統一します。
-        self.env = gym.make('f110-v0', map=map_path, num_agents=1)
+        self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1)
         
         # [ハンドル, 速度] の2次元アクション
         self.action_space = gym.spaces.Box(

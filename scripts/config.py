@@ -63,7 +63,7 @@ DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 500000
+TOTAL_TIMESTEPS = 100000000
 LEARNING_RATE = 3e-4
 
 # --- ネットワーク構造 ---
@@ -72,20 +72,21 @@ NET_ARCH = [128, 128]
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 0.8   # ステアリングの反応速度
-MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
-MAX_SPEED = 4.0            # 最高速度（直線で出す速度）
+MIN_SPEED = 0.7            # 最低速度（これより遅くならない）
+MAX_SPEED = 3.0            # 最高速度（直線で出す速度）
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -500.0   # 衝突時の大きなペナルティ
 REWARD_SURVIVAL = 0.1       # 1ステップ生存するごとの基本報酬
 REWARD_FRONT_WEIGHT = 2.5   # 前方の空きスペースに対する報酬の重み
-REWARD_SPEED_WEIGHT = 1.0   # 「速く走る」ことに対する報酬の重み
+REWARD_SPEED_WEIGHT = 0.8   # 「速く走る」ことに対する報酬の重み
 
 # --- パス設定 ---
-MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
+# MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine' # default map
+MAP_PATH = '/workspace/my_maps/my_map'  # 狭い倉庫マップ
 MODEL_DIR = "/workspace/models"
 # モデル名に設定を反映させて管理しやすくする
-MODEL_NAME = f"ppo_f1_speed_variable_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
+MODEL_NAME = f"ppo_f1_custom_map_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 GIF_PATH = "../gif/run_simulation_wide.gif"
 
@@ -117,3 +118,31 @@ def calculate_reward(scans, action, done, current_speed):
     reward += (1.0 - abs(action[0])) * 0.2
     
     return reward
+
+# def calculate_reward(scans, action, done, current_speed):
+#     if done:
+#         return REWARD_COLLISION
+    
+#     reward = REWARD_SURVIVAL
+    
+#     # --- 1. 前方空間報酬（正面 500〜580） ---
+#     center_dist = np.min(scans[500:580])
+#     reward += (center_dist / 30.0) * REWARD_FRONT_WEIGHT
+    
+#     # --- 2. 路地回避のための「中央維持」報酬（追加） ---
+#     # 左側(例:800番付近)と右側(例:280番付近)の距離を比較
+#     left_dist = np.mean(scans[750:850])
+#     right_dist = np.mean(scans[230:330])
+    
+#     # 左右の距離の差が小さいほど「コース中央」にいるとみなす
+#     # 差が大きい＝どちらかの壁に寄っている（または路地が片側に見えている）
+#     diff = abs(left_dist - right_dist)
+#     reward -= diff * 0.1  # ペナルティとして引く
+    
+#     # --- 3. 速度報酬 ---
+#     reward += (current_speed / MAX_SPEED) * REWARD_SPEED_WEIGHT
+    
+#     # --- 4. 安定性ボーナス ---
+#     reward += (1.0 - abs(action[0])) * 0.2
+    
+#     return reward
