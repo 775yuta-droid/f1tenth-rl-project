@@ -1,5 +1,4 @@
 # import gym
-# #import gymnasium as gym
 # import f110_gym
 # import numpy as np
 # from stable_baselines3 import PPO
@@ -10,9 +9,11 @@
 # class F1TenthRL(gym.Env):
 #     def __init__(self, map_path):
 #         super(F1TenthRL, self).__init__()
-#         self.env = gym.make('f110-v0', map=map_path, num_agents=1)
+#         # 登録名が 'f110-v0' か 'f110_gym:f110-v0' かは環境依存ですが、
+#         # 手動実行で成功した 'f110-v0' に統一します。
+#         self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1)
         
-#         # 【修正ポイント】アクションを2次元 [ハンドル, 速度] に設定
+#         # [ハンドル, 速度] の2次元アクション
 #         self.action_space = gym.spaces.Box(
 #             low=np.array([-1.0, -1.0]), 
 #             high=np.array([1.0, 1.0]), 
@@ -23,36 +24,37 @@
 
 #     def reset(self):
 #         initial_poses = np.array([[0.0, 0.0, 0.0]])
-#         obs, reward, done, info = self.env.reset(poses = initial_poses)
+#         # 戻り値の数に柔軟に対応
+#         result = self.env.reset(poses=initial_poses)
+#         if isinstance(result, tuple):
+#             obs = result[0]
+#         else:
+#             obs = result
 #         return obs['scans'][0].astype(np.float32)
 
 #     def step(self, action):
-#         # 1. AIの出力(action)を実際の制御値に変換
 #         steer = action[0] * config.STEER_SENSITIVITY
-        
-#         # action[1] (-1 to 1) を実際の速度に変換
+#         # action[1] から速度へ変換
 #         speed = config.MIN_SPEED + (action[1] + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         
-#         # 2. シミュレータを実行
 #         obs, _, done, info = self.env.step(np.array([[steer, speed]]))
 #         scans = obs['scans'][0]
         
-#         # 3. 【ここが重要】報酬計算に speed を追加して渡す
+#         # info が None や辞書以外の場合に備えて辞書化
+#         if info is None: info = {}
+        
 #         reward = config.calculate_reward(scans, action, done, speed)
         
-#         return scans.astype(np.float32), reward, done, info
+#         # SB3向けに型を厳密にする
+#         return scans.astype(np.float32), float(reward), bool(done), info
 
 # def main():
-#     map_path = config.MAP_PATH
-    
 #     if not os.path.exists(config.MODEL_DIR):
-#         os.makedirs(config.MODEL_DIR)
+#         os.makedirs(config.MODEL_DIR, exist_ok=True)
 
-#     # 環境のセットアップ
-#     env = F1TenthRL(map_path)
+#     env = F1TenthRL(config.MAP_PATH)
 #     env = DummyVecEnv([lambda: env])
 
-#     # モデルの定義
 #     model = PPO(
 #         "MlpPolicy", 
 #         env, 
@@ -62,12 +64,13 @@
 #         device=config.DEVICE
 #     )
 
-#     print(f"--- 可変速度モードで学習開始: {config.MAP_PATH} ---")
-#     model.learn(total_timesteps=config.TOTAL_TIMESTEPS)
-
-#     # 保存
+#     print(f"--- 可変速度モードで学習開始: {config.MODEL_NAME} ---")
+    
+#     checkpoint_callback = CheckpointCallback(save_freq=1000000, save_path=config.MODEL_DIR)
+#     model.learn(total_timesteps=config.TOTAL_TIMESTEPS, callback=checkpoint_callback)
+#     #model.learn(total_timesteps=config.TOTAL_TIMESTEPS)
 #     model.save(config.MODEL_PATH)
-#     print(f"--- モデルを保存しました: {config.MODEL_PATH} ---")
+#     print(f"--- 保存完了: {config.MODEL_PATH} ---")
 
 # if __name__ == '__main__':
 #     main()
@@ -77,17 +80,15 @@ import f110_gym
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.callbacks import CheckpointCallback
 import os
 import config
 
 class F1TenthRL(gym.Env):
     def __init__(self, map_path):
         super(F1TenthRL, self).__init__()
-        # 登録名が 'f110-v0' か 'f110_gym:f110-v0' かは環境依存ですが、
-        # 手動実行で成功した 'f110-v0' に統一します。
         self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1)
         
-        # [ハンドル, 速度] の2次元アクション
         self.action_space = gym.spaces.Box(
             low=np.array([-1.0, -1.0]), 
             high=np.array([1.0, 1.0]), 
@@ -98,33 +99,40 @@ class F1TenthRL(gym.Env):
 
     def reset(self):
         initial_poses = np.array([[0.0, 0.0, 0.0]])
-        # 戻り値の数に柔軟に対応
         result = self.env.reset(poses=initial_poses)
-        if isinstance(result, tuple):
-            obs = result[0]
-        else:
-            obs = result
+        obs = result[0] if isinstance(result, tuple) else result
+        # そのままのLiDARデータを返す
         return obs['scans'][0].astype(np.float32)
 
     def step(self, action):
         steer = action[0] * config.STEER_SENSITIVITY
-        # action[1] から速度へ変換
         speed = config.MIN_SPEED + (action[1] + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         
         obs, _, done, info = self.env.step(np.array([[steer, speed]]))
+        
+        # --- 変更点：視野制限（スライス）を削除 ---
         scans = obs['scans'][0]
         
-        # info が None や辞書以外の場合に備えて辞書化
         if info is None: info = {}
-        
         reward = config.calculate_reward(scans, action, done, speed)
         
-        # SB3向けに型を厳密にする
+        # SB3向けに型を整える（これはエラー防止のため残しています）
         return scans.astype(np.float32), float(reward), bool(done), info
 
 def main():
     if not os.path.exists(config.MODEL_DIR):
         os.makedirs(config.MODEL_DIR, exist_ok=True)
+
+    # チェックポイント用フォルダ
+    checkpoint_dir = os.path.join(config.MODEL_DIR, "checkpoints")
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    # 100万ステップごとに自動保存
+    checkpoint_callback = CheckpointCallback(
+        save_freq=1000000, 
+        save_path=checkpoint_dir,
+        name_prefix=config.MODEL_NAME
+    )
 
     env = F1TenthRL(config.MAP_PATH)
     env = DummyVecEnv([lambda: env])
@@ -138,10 +146,14 @@ def main():
         device=config.DEVICE
     )
 
-    print(f"--- 可変速度モードで学習開始: {config.MODEL_NAME} ---")
-    model.learn(total_timesteps=config.TOTAL_TIMESTEPS)
+    print(f"--- 学習開始: {config.MODEL_NAME} ---")
+    model.learn(
+        total_timesteps=config.TOTAL_TIMESTEPS,
+        callback=checkpoint_callback
+    )
+    
     model.save(config.MODEL_PATH)
-    print(f"--- 保存完了: {config.MODEL_PATH} ---")
+    print(f"--- 完了: {config.MODEL_PATH} ---")
 
 if __name__ == '__main__':
     main()
