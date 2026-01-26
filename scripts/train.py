@@ -116,7 +116,7 @@ class F1TenthRL(gym.Env):
         if info is None: info = {}
         reward = config.calculate_reward(scans, action, done, speed)
         
-        # SB3向けに型を整える（これはエラー防止のため残しています）
+        # SB3向けに型を整える（これはエラー防止のため残す）
         return scans.astype(np.float32), float(reward), bool(done), info
 
 def main():
