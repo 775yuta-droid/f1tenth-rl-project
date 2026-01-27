@@ -68,29 +68,34 @@ GPUを活用し、
 ---
 ## 📂 ファイル構成と役割
 
-- **Dockerfile**  
-  NVIDIA GPU対応、FFmpeg（動画生成）、Git safe.directory 設定済み
+- **Dockerfile / Dockerfile.2204**  
+  NVIDIA GPU対応、FFmpeg（動画生成）、Git safe.directory 設定済み  
+  2つのバージョンで異なる環境に対応
+
+- **docker-compose.yml**  
+  最新環境（RTX 5060 / Ubuntu 22.04）と旧環境（Ubuntu 20.04）の切り替え可能
+
+- **requirements.txt**  
+  Pythonパッケージの依存関係を管理
+
+- **src/f1_env.py**  
+  F1Tenth環境クラス（train.pyとevaluate.pyで共有）
 
 - **scripts/config.py**  
-  報酬設定スクリプト  
-  このファイルからCPUやGPUの設定。報酬関数を設定する
+  報酬設定、ハイパーパラメータ、デバイス設定を管理
 
 - **scripts/train.py**  
-  学習実行スクリプト  
+  学習実行スクリプト
 
-- **scripts/enjoy.py**  
-  評価・可視化スクリプト  
-  初期版
-
-- **scripts/enjoy-wide.py**  
-  評価・可視化スクリプト  
+- **scripts/evaluate.py**  
+  評価・可視化スクリプト（旧enjoy-wide.py）  
   前方25m・左右15mの **広角視点** で走行をGIF化
 
-- **models/**  
-  学習済みPPOモデルの保存先
+- **scripts/enjoy.py**  
+  シンプルな評価スクリプト（初期版）
 
-- **run_simulation_final.gif**  
-  最新の学習結果によるデモ走行
+- **models/**  
+  学習済みPPOモデルの保存先（.gitignoreで除外）
 
 ---
 

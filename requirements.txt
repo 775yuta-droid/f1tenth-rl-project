@@ -1,0 +1,26 @@
+# F1Tenth Reinforcement Learning Project Dependencies
+
+# Core ML/RL Libraries
+gym==0.19.0
+stable-baselines3[extra]
+shimmy
+gymnasium
+pyyaml
+
+# F1Tenth Simulator
+# Note: f1tenth_gym is installed via git in Dockerfile
+# git+https://github.com/f1tenth/f1tenth_gym.git
+
+# Visualization & Media
+imageio
+imageio-ffmpeg
+matplotlib
+
+# Deep Learning
+numpy
+torch
+
+# Development Tools (optional)
+# pytest
+# black
+# flake8
