@@ -25,6 +25,7 @@ RUN pip3 install --no-cache-dir \
     stable-baselines3[extra] \
     shimmy \
     gymnasium \
+    pyyaml \
     imageio \
     imageio-ffmpeg
 

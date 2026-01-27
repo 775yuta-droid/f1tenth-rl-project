@@ -17,10 +17,22 @@ venv/
 /logs/*
 !/logs/.gitkeep
 
-# 学習済みモデルファイル (基本は手動で共有するかLFSを使う)
-#models/*.zip
+# --- 学習済みモデルファイル ---
+# モデルファイルは重いのでGitには含めない
+# 共有する場合はGit LFSを使用するか、手動で管理
+models/*.zip
+models/checkpoints/
 *.pth
 *.pkl
+
+# --- テスト・開発用ファイル ---
+# テストスクリプトは残すが、テスト結果は除外
+test_results/
+*.test.log
+
+# クリーンアップレポートは開発用なので除外してもOK（必要に応じてコメントアウト）
+# CLEANUP_REPORT.md
+# test_cleanup.py
 
 # --- エディタ・OS関連 ---
 .vscode/
@@ -28,5 +40,4 @@ venv/
 Thumbs.db
 
 # --- Docker関連 ---
-#.devcontainer/ (※チームで共有する場合は除外しない)models/*.zip
-models/
+# .devcontainer/ は共有する場合は除外しない

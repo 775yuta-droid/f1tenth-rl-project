@@ -1,102 +1,3 @@
-# # 1. ベースイメージ (RTX 5060 対応)
-# FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
-
-# # 2. 環境設定
-# ENV DEBIAN_FRONTEND=noninteractive
-
-# # 3. システムパッケージのインストール
-# RUN apt-get update && apt-get install -y \
-#     python3-pip \
-#     python3-dev \
-#     git \
-#     libgl1-mesa-glx \
-#     libglib2.0-0 \
-#     cmake \
-#     build-essential \
-#     swig \
-#     wget \
-#     && rm -rf /var/lib/apt/lists/*
-
-# # 4. pipのアップグレード
-# RUN pip3 install --no-cache-dir --upgrade pip
-
-# # 5. RTX 5060(sm_120) 対応の PyTorch インストール
-# RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# # 6. RL関連ライブラリ (gymnasiumをメインに、互換ツールを導入)
-# RUN pip3 install --no-cache-dir \
-#     stable-baselines3[extra] \
-#     shimmy>=0.2.1 \
-#     gymnasium == 0.23.1\
-#     imageio \
-#     imageio-ffmpeg \
-#     matplotlib \
-#     scipy 
-
-# # 7. f1tenth_gym のインストール (gymのビルドを完全にバイパス)
-# RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
-# WORKDIR /opt/f1tenth_gym
-
-# # エラーの原因となる gym の依存記述を物理的に削除し、
-# # 現代的な gymnasium + shimmy 環境で動くように仕向けます
-# RUN sed -i 's/"gym==0.19.0"//g' setup.py && \
-#     sed -i 's/"gym"//g' setup.py && \
-#     pip3 install --no-cache-dir gymnasium shimmy && \
-#     pip3 install --no-cache-dir -e . --no-deps
-
-# # 足りない依存関係を手動で補完（ここでビルドエラーが出るものは避ける）
-# RUN pip3 install --no-cache-dir pyyaml
-# # 8. マップファイルの準備
-# RUN cp /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.pgm /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.png
-
-# # 9. 作業ディレクトリの設定
-# WORKDIR /workspace
-
-# # 1. ベースイメージ
-# FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
-
-# # 2. 環境設定
-# ENV DEBIAN_FRONTEND=noninteractive
-
-# # 3. システムパッケージ
-# RUN apt-get update && apt-get install -y \
-#     python3-pip python3-dev git libgl1-mesa-glx libglib2.0-0 \
-#     cmake build-essential swig wget && rm -rf /var/lib/apt/lists/*
-
-# # 4. pipアップグレード
-# RUN pip3 install --no-cache-dir --upgrade pip
-
-# # 5. RTX 5060(sm_120) 対応 PyTorch
-# RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# # 6. RL関連 & 不足していた依存ライブラリを一括導入
-# # Numpyのバージョン固定、numba, pygletなどをここに追加
-# RUN pip3 install --no-cache-dir \
-#     "numpy<1.24" \
-#     "numba>=0.55.2" \
-#     "pyglet<1.5" \
-#     pyopengl \
-#     stable-baselines3[extra] \
-#     shimmy>=0.2.1 \
-#     gymnasium \
-#     imageio imageio-ffmpeg matplotlib scipy
-
-# # 7. f1tenth_gym のインストール
-# RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
-# WORKDIR /opt/f1tenth_gym
-
-# # 手動で成功した gym==0.23.1 の導入と、setup.pyの呪い解除を自動化
-# RUN sed -i 's/"gym==0.19.0"//g' setup.py && \
-#     pip3 install "setuptools<66" && \
-#     pip3 install "gym==0.23.1" && \
-#     pip3 install -e . --no-deps
-
-# # 8. マップファイルの準備
-# RUN cp /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.pgm /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.png
-
-# # 9. 作業ディレクトリ
-# WORKDIR /workspace
-
 # 1. ベースイメージ (RTX 50-series / Blackwell 対応)
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
@@ -128,6 +29,7 @@ RUN pip3 install --no-cache-dir \
     "numba>=0.55.2" \
     "pyglet<1.5" \
     pyopengl \
+    pyyaml \
     stable-baselines3[extra] \
     shimmy>=0.2.1 \
     gymnasium \

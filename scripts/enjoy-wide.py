@@ -22,7 +22,7 @@ def main():
     env = F1TenthRL(config.MAP_PATH)
     
     # モデルの読み込みパス
-    target_model = "/workspace/models/checkpoints/ppo_f1_custom_map_steps5000000_arch2_5000000_steps.zip"
+    target_model = "/workspace/models/ppo_f1_custom_map_steps10000_arch2.zip"
     
     if os.path.exists(target_model):
         model = PPO.load(target_model, device=config.DEVICE)
