@@ -36,7 +36,8 @@ RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym
 COPY ./my_maps/my_map.pgm /opt/f1tenth_gym/gym/f110_gym/envs/maps/
 COPY ./my_maps/my_map.yaml /opt/f1tenth_gym/gym/f110_gym/envs/maps/
 WORKDIR /opt/f1tenth_gym
-RUN pip3 install -e .
+# setup.py の依存関係を無視してインストール (すでに gym 0.23.1 を導入済みのため)
+RUN pip3 install -e . --no-deps
 
 # マップファイルの準備（シミュレーターの仕様に合わせる）
 RUN cp /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.pgm /opt/f1tenth_gym/gym/f110_gym/envs/maps/levine.png

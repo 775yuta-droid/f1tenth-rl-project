@@ -142,6 +142,7 @@ def main():
         for i in range(args.steps):
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
+            raw_scan = info.get('raw_scan', np.zeros(1080))
             total_reward += reward
 
             # 車両状態の取得
@@ -153,7 +154,7 @@ def main():
 
             # 描画更新 (2ステップに1回)
             if i % 2 == 0 and not args.no_render:
-                frame = renderer.update(car_state, obs, action, reward, i, collisions)
+                frame = renderer.update(car_state, raw_scan, action, reward, i, collisions)
                 frames.append(frame)
                 
                 if (i // 2) % 50 == 0:

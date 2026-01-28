@@ -32,6 +32,15 @@ class F1TenthRL(gym.Env):
         super(F1TenthRL, self).__init__()
         self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1)
         
+        # 観測空間の計算
+        # 1. LiDAR: 1080 -> ダウンサンプリング
+        self.lidar_size = 1080 // config.LIDAR_DOWNSAMPLE_FACTOR
+        
+        # 2. 車両状態: [速度, ステアリング] (2次元)
+        self.state_size = 2 if config.INCLUDE_VEHICLE_STATE else 0
+        
+        total_obs_size = self.lidar_size + self.state_size
+        
         # アクション空間: [ステアリング, 速度] の2次元
         self.action_space = gym.spaces.Box(
             low=np.array([-1.0, -1.0]), 
@@ -40,53 +49,63 @@ class F1TenthRL(gym.Env):
             dtype=np.float32
         )
         
-        # 観測空間: LiDARスキャンデータ（1080次元）
+        # 観測空間の定義
         self.observation_space = gym.spaces.Box(
             low=0, 
             high=30, 
-            shape=(1080,), 
+            shape=(total_obs_size,), 
             dtype=np.float32
         )
+
+    def _get_obs(self, raw_obs):
+        """
+        生の観測データを加工して返す
+        """
+        # LiDARデータのダウンサンプリング (平均または最小値を取る)
+        scans = raw_obs['scans'][0]
+        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).mean(axis=1)
+        
+        if config.INCLUDE_VEHICLE_STATE:
+            # 現在の車両状態を取得 [速度, ステアリング]
+            # シミュレータの内部状態から取得
+            state = self.env.sim.agents[0].state
+            # state[3] は速度、ステアリング角はアクションから取るべきだが、ここでは正規化して追加
+            # 簡略化のため速度(km/h相当)と向きの微細な変化を想定
+            vel = state[3] / config.MAX_SPEED
+            steer = state[2] # yawを代用、あるいは前回のアクションを保持して使う
+            vehicle_state = np.array([vel, steer], dtype=np.float32)
+            return np.concatenate([downsampled, vehicle_state]).astype(np.float32)
+        
+        return downsampled.astype(np.float32)
 
     def reset(self):
         """
         環境をリセットし、初期観測を返す
-        
-        Returns:
-            初期LiDARスキャンデータ
         """
-        # configから初期位置を読み込む
         sx, sy, syaw = config.START_POSE
         initial_poses = np.array([[sx, sy, syaw]])
         
         result = self.env.reset(poses=initial_poses)
         obs = result[0] if isinstance(result, tuple) else result
-        return obs['scans'][0].astype(np.float32)
+        return self._get_obs(obs)
 
     def step(self, action):
         """
         1ステップ実行
-        
-        Args:
-            action: [ステアリング, 速度] の2次元配列
-            
-        Returns:
-            observation: LiDARスキャンデータ
-            reward: 報酬
-            done: エピソード終了フラグ
-            info: 追加情報
         """
-        # アクションをシミュレータの入力形式に変換
         steer = action[0] * config.STEER_SENSITIVITY
         speed = config.MIN_SPEED + (action[1] + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         
-        # シミュレータでステップ実行
         obs, _, done, info = self.env.step(np.array([[steer, speed]]))
-        scans = obs['scans'][0]
+        raw_scans = obs['scans'][0]
         
-        # 報酬計算
+        # 報酬計算 (報酬計算には生のLiDARデータを使う)
         if info is None:
             info = {}
-        reward = config.calculate_reward(scans, action, done, speed)
+        info['raw_scan'] = raw_scans # 描画用に生のデータを保持
+        reward = config.calculate_reward(raw_scans, action, done, speed)
         
-        return scans.astype(np.float32), float(reward), bool(done), info
+        processed_obs = self._get_obs(obs)
+        
+        return processed_obs, float(reward), bool(done), info
+

@@ -16,7 +16,11 @@ AI（PPO: Proximal Policy Optimization）を開発するプロジェクトです
 > **「壁の隙間を道と誤認してコース外へ迷い込む」**
 
 という強化学習特有の課題を、  
-**報酬設計（Reward Engineering）によって解決**した点にあります。
+**報酬設計（Reward Engineering）** と **観測空間の工夫（Observation Engineering）** によって解決しました。
+
+#### 観測空間の工夫
+- **LiDARダウンサンプリング**: 1080点のデータを1/10に圧縮。ノイズを抑制し、学習を高速化。
+- **車両状態の統合**: 速度とステアリング角を観測に含めることで、マシンの慣性を考慮した判断が可能に。
 
 ---
 
@@ -98,6 +102,11 @@ GPUを活用し、
   **【定量評価版】** 性能計測スクリプト。
   - 複数エピソード実行して平均速度や完走率を算出
   - 報酬設計の良し悪しを数値で比較可能
+  - 観測空間の次元不一致に対するエラーハンドリング済み
+
+- **scripts/verify_workflow.py**  
+  **【環境検証用】** 改修後の環境が正しく動作するかを自動チェックするスクリプト。
+  - 観測空間の形状チェック、短時間学習、GIF生成までを一気通貫でテスト。
 
 ---
 
@@ -141,6 +150,13 @@ python3 scripts/enjoy-wide.py --steps 3000 --model models/my_best_model --save m
 ```bash
 # 10エピソード走らせて平均性能を計測
 python3 scripts/evaluate.py --episodes 10
+```
+
+### 4. 環境の整合性チェック（Verification）
+
+```bash
+# 改修後に環境が正しく動作するか自動テスト
+python3 scripts/verify_workflow.py
 ```
 
 ---

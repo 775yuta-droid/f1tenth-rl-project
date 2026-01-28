@@ -14,6 +14,10 @@ LEARNING_RATE = 3e-4
 # 複雑な判断（加減速）をさせるため、少し深めの [128, 128] に設定
 NET_ARCH = [128, 128]
 
+# --- 観測空間の工夫 ---
+LIDAR_DOWNSAMPLE_FACTOR = 10  # 1080 -> 108次元に削減
+INCLUDE_VEHICLE_STATE = True # 速度とステアリング角を観測に含める
+
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 0.8   # ステアリングの反応速度
 MIN_SPEED = 1.0            # 最低速度（これより遅くならない）

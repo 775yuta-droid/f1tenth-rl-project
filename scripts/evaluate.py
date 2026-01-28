@@ -19,6 +19,7 @@ def main():
 
     # 環境の初期化
     env = F1TenthRL(config.MAP_PATH)
+    print(f"現在の観測空間の形状: {env.observation_space.shape}")
     
     # モデルの読み込み
     target_model = args.model if args.model else config.MODEL_PATH
@@ -26,8 +27,15 @@ def main():
         target_model += ".zip"
     
     if os.path.exists(target_model):
-        model = PPO.load(target_model, device=config.DEVICE)
-        print(f"モデルをロードしました: {target_model}")
+        try:
+            model = PPO.load(target_model, device=config.DEVICE)
+            print(f"モデルをロードしました: {target_model}")
+        except ValueError as e:
+            print(f"--- 読み込みエラー ---")
+            print(f"モデル '{target_model}' の読み込みに失敗しました。")
+            print(f"観測空間の次元設定（LIDAR_DOWNSAMPLE_FACTOR 等）が学習時と異なっている可能性があります。")
+            print(f"詳細: {e}")
+            return
     else:
         print(f"エラー: モデルファイルが見つかりません: {target_model}")
         return
