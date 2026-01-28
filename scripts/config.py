@@ -7,7 +7,7 @@ DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 10000
+TOTAL_TIMESTEPS = 200000
 LEARNING_RATE = 3e-4
 
 # --- ネットワーク構造 ---
@@ -16,28 +16,39 @@ NET_ARCH = [128, 128]
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 0.8   # ステアリングの反応速度
-MIN_SPEED = 0.7            # 最低速度（これより遅くならない）
+MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
 MAX_SPEED = 3.0            # 最高速度（直線で出す速度）
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -500.0   # 衝突時の大きなペナルティ
-REWARD_SURVIVAL = 0.1       # 1ステップ生存するごとの基本報酬
-REWARD_FRONT_WEIGHT = 2.5   # 前方の空きスペースに対する報酬の重み
-REWARD_SPEED_WEIGHT = 0.8   # 「速く走る」ことに対する報酬の重み
+REWARD_COLLISION = -1000.0   # 衝突時の大きなペナルティ（より厳しく）
+REWARD_SURVIVAL = 0.05      # 1ステップ生存するごとの基本報酬（少し抑える）
+REWARD_FRONT_WEIGHT = 2.0   # 前方の空きスペースに対する報酬の重み
+REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
+REWARD_CENTRALITY_WEIGHT = 0.8 # コース中央を走ることへの報酬
+REWARD_DISTANCE_WEIGHT = 2.0   # 壁からの距離（安全マージン）への報酬
 
 # --- パス設定 ---
 # MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine' # default map
 MAP_PATH = '/workspace/my_maps/my_map'  # 狭い倉庫マップ
+
+# --- 初期位置設定 [x, y, yaw] ---
+# view_spawn.py で確認しながら調整してください
+START_POSE = [2.0, 4.0, 0.0] 
+
 MODEL_DIR = "/workspace/models"
+LOG_DIR = "/workspace/logs"
 # モデル名に設定を反映させて管理しやすくする
 MODEL_NAME = f"ppo_f1_custom_map_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
-GIF_PATH = "../gif/run_simulation_wide.gif"
+# プロジェクトルートのgifディレクトリを確実に指すように修正
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GIF_DIR = os.path.join(PROJECT_ROOT, "gif")
+GIF_PATH = os.path.join(GIF_DIR, f"run_simulation_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
 
 # --- 共通の報酬計算ロジック ---
 def calculate_reward(scans, action, done, current_speed):
     """
-    scans: LiDARの距離データ
+    scans: LiDARの距離データ (1080点)
     action: AIの出力 [ステアリング, 速度]
     done: 衝突判定
     current_speed: 現在の車の速度(m/s)
@@ -45,20 +56,39 @@ def calculate_reward(scans, action, done, current_speed):
     if done:
         return REWARD_COLLISION
     
-    # 1. 生存報酬
-    reward = REWARD_SURVIVAL
+    # 1. 前方空間報酬（正面付近のLiDARデータ 視野を少し広げて 440〜640番）
+    # 遠くまで道があるほど報酬が高い。
+    front_dist = np.min(scans[440:640])
+    reward = (front_dist / 30.0) * REWARD_FRONT_WEIGHT
     
-    # 2. 前方空間報酬（正面付近のLiDARデータ 500〜580番 を使用）
-    # 遠くまで道があるほど報酬が高い。30mを最大値として正規化。
-    center_dist = np.min(scans[500:580])
-    reward += (center_dist / 30.0) * REWARD_FRONT_WEIGHT
+    # 2. 速度報酬
+    # 前方が詰まっている時は速度報酬を下げ、減速を促す
+    speed_factor = current_speed / MAX_SPEED
+    if front_dist < 3.0:
+        reward += speed_factor * REWARD_SPEED_WEIGHT * 0.2
+    else:
+        reward += speed_factor * REWARD_SPEED_WEIGHT
     
-    # 3. 速度報酬（可変速度のキモ）
-    # MAX_SPEEDに近いほど高い報酬を与えることで、AIに加速を促す
-    reward += (current_speed / MAX_SPEED) * REWARD_SPEED_WEIGHT
+    # 3. 壁接近ペナルティ（安全マージン）
+    # どこであれ壁に近すぎる場合にマイナスを与える
+    min_dist = np.min(scans)
+    if min_dist < 0.4:  # 40cm以内は危険ゾーン
+        reward -= REWARD_DISTANCE_WEIGHT * (1.0 - (min_dist / 0.4))
     
-    # 4. 直進・安定性ボーナス
-    # ハンドルを大きく切っていない（abs(action[0])が小さい）ほどプラス
-    reward += (1.0 - abs(action[0])) * 0.2
+    # 4. 中央維持報酬 (Lateral Centrality)
+    # 左45度(720)と右45度(360)付近の距離を比較し、バランスが良い（中央にいる）ほど報酬
+    left_dist = np.min(scans[700:740])
+    right_dist = np.min(scans[340:380])
+    centrality = 1.0 - abs(left_dist - right_dist) / (left_dist + right_dist + 1e-6)
+    reward += centrality * REWARD_CENTRALITY_WEIGHT
+    
+    # 5. ステアリング・安定性（条件付き）
+    # 前方が開けている時（直線路）のみ、無駄な蛇行を抑制する
+    if front_dist > 5.0:
+        reward += (1.0 - abs(action[0])) * 0.2
+        reward += REWARD_SURVIVAL
+    else:
+        # カーブでは生存報酬のみ与え、ステアリング自体は制限しない
+        reward += REWARD_SURVIVAL
     
     return reward

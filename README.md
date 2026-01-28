@@ -43,7 +43,7 @@ GPUを活用し、
 ---
 
 ## 🛠️ 二回目からの起動方法
-### 1. vscodeを開きwslを起動する
+### 1. wslを起動する
 
 ### 2. コンテナを起動して中に入る
 
@@ -63,61 +63,99 @@ GPUを活用し、
 ### 2. Gitに保存
 
     git add .
-    git commit -m "feat: refine reward function and update dockerfile"
+    git commit -m "example commit"
     git push origin main
 ---
 ## 📂 ファイル構成と役割
 
 - **Dockerfile / Dockerfile.2204**  
-  NVIDIA GPU対応、FFmpeg（動画生成）、Git safe.directory 設定済み  
-  2つのバージョンで異なる環境に対応
+  NVIDIA GPU対応、FFmpeg（動画生成）、Git safe.directory 設定済み。Gymのビルドエラー回避のためのバージョン固定済み。
 
 - **docker-compose.yml**  
-  最新環境（RTX 5060 / Ubuntu 22.04）と旧環境（Ubuntu 20.04）の切り替え可能
+  `f1-sim-latest`: 最新環境（Ubuntu 22.04ベース、RTX 5060想定）
+  `f1-sim-legacy`: 旧環境（Ubuntu 20.04ベース）
 
 - **requirements.txt**  
-  Pythonパッケージの依存関係を管理
+  Pythonパッケージの依存関係。Gym 0.23.1, Stable-Baselines3, PyYAML などのバージョンが固定されています。
 
 - **src/f1_env.py**  
-  F1Tenth環境クラス（train.pyとevaluate.pyで共有）
+  F1Tenth環境クラス。Stable-Baselines3でそのまま使える Gym Wrapper です。
 
 - **scripts/config.py**  
-  報酬設定、ハイパーパラメータ、デバイス設定を管理
+  報酬設計、物理パラメータ（最高速度など）、パス設定を一括管理する中心ファイル。
 
 - **scripts/train.py**  
-  学習実行スクリプト
+  学習実行スクリプト。
+
+- **scripts/enjoy-wide.py**  
+  **【高機能版】** 評価・可視化スクリプト。
+  - レンダリング速度の最適化済み
+  - **走行軌跡（ブルーのライン）** の表示
+  - **LiDAR点群（シアンの点）** の可視化
+  - リアルタイムHUD（速度、ステアリング、ステップごとの報酬）
 
 - **scripts/evaluate.py**  
-  評価・可視化スクリプト（旧enjoy-wide.py）  
-  前方25m・左右15mの **広角視点** で走行をGIF化
-
-- **scripts/enjoy.py**  
-  シンプルな評価スクリプト（初期版）
-
-- **models/**  
-  学習済みPPOモデルの保存先（.gitignoreで除外）
+  **【定量評価版】** 性能計測スクリプト。
+  - 複数エピソード実行して平均速度や完走率を算出
+  - 報酬設計の良し悪しを数値で比較可能
 
 ---
 
 ## 🚀 実行方法
 
-### 学習（Training）
+### 1. 学習（Training）
 
-    rm -f models/ppo_f1_final.zip
-    python3 scripts/train.py
+```bash
+# 学習済みモデルをリセットして開始する場合
+rm -f models/*.zip
+python3 scripts/train.py
+```
+
+#### 学習の監視 (TensorBoard)
+学習の進捗（報酬の推移など）をブラウザでリアルタイムに確認できます。
+```bash
+# コンテナ内で実行
+tensorboard --logdir logs --bind_all
+```
+ホストマシンのブラウザから `http://localhost:6006` で閲覧可能です。
+
+### 2. 評価と録画（Visual Evaluation）
+
+```bash
+# 標準設定で実行（GIFが ../gif/ に保存されます）
+python3 scripts/enjoy-wide.py
+
+# オプション指定（ステップ数、モデル、保存先）
+python3 scripts/enjoy-wide.py --steps 3000 --model models/my_best_model --save my_drive.gif
+```
+
+| 引数 | 説明 | デフォルト |
+| :--- | :--- | :--- |
+| `--steps` | 最大ステップ数 | 1500 |
+| `--model` | モデルのパス（拡張子なし） | config内のパス |
+| `--save` | 保存先パス | config内のパス |
+| `--no-render` | GIFを生成せずシミュレーションのみ | Off |
+
+### 3. ベンチマーク実行（Quantitative Evaluation）
+
+```bash
+# 10エピソード走らせて平均性能を計測
+python3 scripts/evaluate.py --episodes 10
+```
 
 ---
 
-### 評価と録画（Evaluation）
+## 🔧 環境のリセット・再構築
+ライブラリのバージョン変更を反映させるには、一度コンテナを破棄してビルドし直すのが確実です。
 
-    python3 scripts/enjoy-wide.py
-
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
 ---
-
 ## 🔧 トラブルシューティング
 
 Docker環境で発生する  
 **「dubious ownership」エラー**は、  
 Dockerfile 内の `safe.directory` 設定により自動解決される。
-
-

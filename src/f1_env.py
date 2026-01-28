@@ -55,7 +55,10 @@ class F1TenthRL(gym.Env):
         Returns:
             初期LiDARスキャンデータ
         """
-        initial_poses = np.array([[0.0, 0.0, 0.0]])
+        # configから初期位置を読み込む
+        sx, sy, syaw = config.START_POSE
+        initial_poses = np.array([[sx, sy, syaw]])
+        
         result = self.env.reset(poses=initial_poses)
         obs = result[0] if isinstance(result, tuple) else result
         return obs['scans'][0].astype(np.float32)

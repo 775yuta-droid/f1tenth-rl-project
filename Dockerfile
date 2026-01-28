@@ -15,19 +15,19 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# pipのアップグレードとバージョン固定
-RUN pip3 install --no-cache-dir "pip<24.1"
+# pipのアップグレードとビルドツールの固定 (Gymビルドエラー回避のため)
+RUN pip3 install --no-cache-dir "pip<24.1" && \
+    pip3 install --no-cache-dir setuptools==65.5.0 wheel==0.38.4
 
-# 強化学習関連のインストール (Gym 0.19.0 を基準に SB3 を構成)
-# ※ shimmy は Gymnasium 互換用ですが、最新の SB3 を入れるために同梱
+# 強化学習関連と可視化ツールのインストール
 RUN pip3 install --no-cache-dir \
-    gym==0.19.0 \
+    gym==0.23.1 \
     stable-baselines3[extra] \
     shimmy \
-    gymnasium \
     pyyaml \
     imageio \
-    imageio-ffmpeg
+    imageio-ffmpeg \
+    matplotlib
 
 # f1tenth_gym のインストール
 # /opt/f1tenth_gym にクローンして編集可能モードでインストール

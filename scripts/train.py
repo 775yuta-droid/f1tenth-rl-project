@@ -15,14 +15,17 @@ import config
 def main():
     if not os.path.exists(config.MODEL_DIR):
         os.makedirs(config.MODEL_DIR, exist_ok=True)
+    if not os.path.exists(config.LOG_DIR):
+        os.makedirs(config.LOG_DIR, exist_ok=True)
 
     # チェックポイント用フォルダ
     checkpoint_dir = os.path.join(config.MODEL_DIR, "checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
     
-    # 100万ステップごとに自動保存
+    # 学習の進捗に合わせて保存（5回に分けて保存するイメージ）
+    save_freq = max(config.TOTAL_TIMESTEPS // 5, 1000)
     checkpoint_callback = CheckpointCallback(
-        save_freq=1000000, 
+        save_freq=save_freq, 
         save_path=checkpoint_dir,
         name_prefix=config.MODEL_NAME
     )
@@ -36,10 +39,13 @@ def main():
         learning_rate=config.LEARNING_RATE,
         policy_kwargs=dict(net_arch=config.NET_ARCH),
         verbose=1, 
+        tensorboard_log=config.LOG_DIR,
         device=config.DEVICE
     )
 
     print(f"--- 学習開始: {config.MODEL_NAME} ---")
+    print(f"TensorBoard ログ: {config.LOG_DIR}")
+    
     model.learn(
         total_timesteps=config.TOTAL_TIMESTEPS,
         callback=checkpoint_callback

@@ -26,7 +26,8 @@ env = gym.make('f110-v0',
 
 # すでに env = gym.make(...) があるはずなので、その下に追記
 # 座標 [x, y, 向き(yaw)]
-poses = np.array([[0.0, 0.0, 0.0]]) 
+import config
+poses = np.array([config.START_POSE]) 
 
 try:
     obs, reward, done, info = env.reset(poses=poses)

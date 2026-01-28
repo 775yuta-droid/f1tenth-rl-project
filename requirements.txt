@@ -1,15 +1,15 @@
 # F1Tenth Reinforcement Learning Project Dependencies
 
-# Core ML/RL Libraries
-gym==0.19.0
-stable-baselines3[extra]
-shimmy
-gymnasium
-pyyaml
+# Version tools for older gym compatibility
+setuptools==65.5.0
+wheel==0.38.4
 
-# F1Tenth Simulator
-# Note: f1tenth_gym is installed via git in Dockerfile
-# git+https://github.com/f1tenth/f1tenth_gym.git
+# Core ML/RL Libraries
+# Note: gym 0.21.0 or higher needs older setuptools to build correctly
+gym==0.23.1
+stable_baselines3[extra]
+shimmy
+pyyaml
 
 # Visualization & Media
 imageio
@@ -17,10 +17,6 @@ imageio-ffmpeg
 matplotlib
 
 # Deep Learning
+# numpy<=1.22.0 is preferred for f110_gym but compatible versions can vary
 numpy
 torch
-
-# Development Tools (optional)
-# pytest
-# black
-# flake8
