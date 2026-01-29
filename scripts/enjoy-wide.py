@@ -112,13 +112,26 @@ def main():
     parser.add_argument('--no-render', action='store_true', help='GIFを生成しない(デバッグ用)')
     args = parser.parse_args()
 
-    os.makedirs(os.path.dirname(args.save), exist_ok=True)
+    # 保存先の調整 (ディレクトリ指定がない場合は config.GIF_DIR を使用)
+    save_path = args.save
+    if os.path.dirname(save_path) == '':
+        save_path = os.path.join(config.GIF_DIR, save_path)
+
+    save_dir = os.path.dirname(save_path)
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
 
     # 環境の初期化
     env = F1TenthRL(config.MAP_PATH)
     
-    # モデルの読み込み
-    target_model = args.model if args.model else config.MODEL_PATH
+    # モデルの読み込み (ディレクトリ指定がない場合は config.MODEL_DIR を指定)
+    if args.model:
+        if os.path.dirname(args.model) == '':
+            target_model = os.path.join(config.MODEL_DIR, args.model)
+        else:
+            target_model = args.model
+    else:
+        target_model = config.MODEL_PATH
     if not target_model.endswith(".zip"):
         target_model += ".zip"
     
@@ -176,9 +189,14 @@ def main():
         plt.close(renderer.fig)
         
         if len(frames) > 0 and not args.no_render:
-            print(f"GIF生成中... ({len(frames)} frames)")
-            imageio.mimsave(args.save, frames, duration=40)
-            print(f"保存完了: {args.save}")
+            print(f"動画生成中... ({len(frames)} frames)")
+            if save_path.lower().endswith('.mp4'):
+                # MP4の場合 (fps=25 は duration=40ms に相当)
+                imageio.mimsave(save_path, frames, fps=25, quality=8, macro_block_size=16)
+            else:
+                # GIFの場合
+                imageio.mimsave(save_path, frames, duration=40)
+            print(f"保存完了: {save_path}")
         else:
             print("保存はスキップされました。")
 

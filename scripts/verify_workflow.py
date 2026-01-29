@@ -72,17 +72,17 @@ def main():
 
     # 3. 描画・GIF生成の実行
     print("\n[3/3] 描画とGIF生成の実行")
-    test_gif_path = os.path.join(config.GIF_DIR, "test_verify_simulation.gif")
-    enjoy_steps = 100
-    enjoy_cmd = f"python3 {SCRIPT_DIR}/enjoy-wide.py --steps {enjoy_steps} --model {test_model_path} --save {test_gif_path}"
+    test_mp4_path = os.path.join(config.GIF_DIR, "test_verify_simulation.mp4")
+    enjoy_steps = 300
+    enjoy_cmd = f"python3 {SCRIPT_DIR}/enjoy-wide.py --steps {enjoy_steps} --model {test_model_path} --save {test_mp4_path}"
     
     if not run_command(enjoy_cmd, "描画テスト"):
         sys.exit(1)
         
-    if not os.path.exists(test_gif_path):
-        print(f"!!! Error: GIFファイルが生成されませんでした: {test_gif_path}")
+    if not os.path.exists(test_mp4_path):
+        print(f"!!! Error: GIFファイルが生成されませんでした: {test_mp4_path}")
         sys.exit(1)
-    print(f"✅ 描画プロセスのチェック完了 (保存先: {test_gif_path})")
+    print(f"✅ 描画プロセスのチェック完了 (保存先: {test_mp4_path})")
 
     print("\n" + "="*50)
     print("✨ すべての検証項目をクリアしました！")
