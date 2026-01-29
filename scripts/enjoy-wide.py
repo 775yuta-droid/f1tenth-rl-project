@@ -71,14 +71,15 @@ class MapRenderer:
         # 自車の位置
         self.car_dot.set_data([px], [py])
 
-        # 向きの矢印（Arrowは更新が少し特殊なので毎回消して描くか、Patchを使う）
+        # 向きの矢印
         if self.car_arrow:
             self.car_arrow.remove()
         
-        arrow_len = 15
+        # マップ解像度(0.075)に合わせて矢印のサイズを調整
+        arrow_len = 10 
         dx = arrow_len * np.cos(car_theta)
-        dy = -arrow_len * np.sin(car_theta) # 画像座標系
-        self.car_arrow = self.ax.arrow(px, py, dx, dy, head_width=6, head_length=8, fc='#ff0055', ec='white', zorder=6)
+        dy = -arrow_len * np.sin(car_theta) # 画像座標系(y軸反転)
+        self.car_arrow = self.ax.arrow(px, py, dx, dy, head_width=4, head_length=5, fc='#ff0055', ec='white', zorder=6)
 
         # LiDAR点群
         angles = np.linspace(-2.35, 2.35, 1080) + car_theta
@@ -114,6 +115,18 @@ def main():
     os.makedirs(os.path.dirname(args.save), exist_ok=True)
 
     # 環境の初期化
+    # 注意: 既存のモデル(200000steps)は LIDAR_DOWNSAMPLE_FACTOR=1, INCLUDE_VEHICLE_STATE=False の時に
+    # 作成された可能性があるため、モデルの observation_space に合わせて config を一時書き換え
+    original_downsample = config.LIDAR_DOWNSAMPLE_FACTOR
+    original_include_state = config.INCLUDE_VEHICLE_STATE
+    
+    # ターゲットモデルによって設定を切り替える (簡易的な実装)
+    # 本来はモデルの metadata 等から取得すべきだが、ここでは手動で調整
+    if "steps200000" in (args.model or config.MODEL_PATH):
+        print("警告: 既存モデルとの互換性のために環境設定を一時的に変更します (LIDAR=1, STATE=False)")
+        config.LIDAR_DOWNSAMPLE_FACTOR = 1
+        config.INCLUDE_VEHICLE_STATE = False
+    
     env = F1TenthRL(config.MAP_PATH)
     
     # モデルの読み込み
@@ -148,8 +161,10 @@ def main():
             # 車両状態の取得
             try:
                 state = env.env.sim.agents[0].state
-                car_state = (state[0], state[1], state[2], state[3]) # x, y, theta, velocity
-            except:
+                # state[0]: x, state[1]: y, state[4]: yaw (psi), state[3]: velocity
+                # state[2] はステアリング角なので、向きには state[4] を使うのが正しい
+                car_state = (state[0], state[1], state[4], state[3]) 
+            except Exception as e:
                 car_state = (0, 0, 0, 0)
 
             # 描画更新 (2ステップに1回)
@@ -178,6 +193,10 @@ def main():
             print(f"保存完了: {args.save}")
         else:
             print("保存はスキップされました。")
+        
+        # 設定を元に戻す
+        config.LIDAR_DOWNSAMPLE_FACTOR = original_downsample
+        config.INCLUDE_VEHICLE_STATE = original_include_state
 
 if __name__ == '__main__':
     main()
