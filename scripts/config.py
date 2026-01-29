@@ -7,7 +7,7 @@ DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 20000
+TOTAL_TIMESTEPS = 500000
 LEARNING_RATE = 3e-4
 
 # --- ネットワーク構造 ---
