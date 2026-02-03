@@ -42,17 +42,18 @@ MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/berlin' # default map
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [2.0, 2.0, 0.0] 
+START_POSE = [2.0, 1.0, 0.0] 
 
 MODEL_DIR = "/workspace/models"
 LOG_DIR = "/workspace/logs"
 # モデル名に設定を反映させて管理しやすくする
-MODEL_NAME = f"ppo_f1_custom_map_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
+MAP_NAME = os.path.basename(MAP_PATH)
+MODEL_NAME = f"ppo_f1_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 # プロジェクトルートのgifディレクトリを確実に指すように修正
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GIF_DIR = os.path.join(PROJECT_ROOT, "gif")
-GIF_PATH = os.path.join(GIF_DIR, f"run_simulation_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
+GIF_PATH = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
 
 # --- 共通の報酬計算ロジック ---
 def calculate_reward(scans, action, done, current_speed):
