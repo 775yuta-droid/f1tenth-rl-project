@@ -130,20 +130,20 @@ NET_ARCH = [256, 256]
 
 ## 📚 主要スクリプト
 
-### 学習
+### train
 
 ```bash
 cd scripts
 python3 train.py --steps 500000 --model ../models/my_model
 ```
 
-### 評価
+### evalute
 
 ```bash
 python3 evaluate.py --episodes 10 --model ../models/my_model
 ```
 
-### ビジュアライザ
+### Visualizer
 
 ```bash
 python3 enjoy.py          # LiDAR点群表示
