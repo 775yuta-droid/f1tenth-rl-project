@@ -88,8 +88,24 @@ class F1TenthRL(gym.Env):
             vel = state[3] / config.MAX_SPEED
             steer = state[2]
             parts.append(np.array([vel, steer], dtype=np.float32))
-        
-        return np.concatenate(parts).astype(np.float32)
+
+        if config.NORMALIZE_OBSERVATIONS:
+            norm_parts = []
+            # LiDAR 正規化
+            lidar_norm = (downsampled - config.LIDAR_MEAN) / config.LIDAR_STD
+            norm_parts.append(lidar_norm)
+            if config.INCLUDE_LIDAR_RESIDUAL:
+                delta_norm = (delta_lidar - config.LIDAR_RESIDUAL_MEAN) / config.LIDAR_RESIDUAL_STD
+                norm_parts.append(delta_norm)
+            if config.INCLUDE_VEHICLE_STATE:
+                state_arr = np.array([vel, steer], dtype=np.float32)
+                state_norm = (state_arr - config.VEHICLE_STATE_MEAN) / config.VEHICLE_STATE_STD
+                norm_parts.append(state_norm)
+            obs = np.concatenate(norm_parts).astype(np.float32)
+        else:
+            obs = np.concatenate(parts).astype(np.float32)
+
+        return obs
 
     def reset(self):
         """

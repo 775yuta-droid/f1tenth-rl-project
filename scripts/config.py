@@ -7,8 +7,8 @@ DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 25000000
-LEARNING_RATE = 3e-4
+TOTAL_TIMESTEPS = 1500000
+LEARNING_RATE = 1e-4
 
 # --- ネットワーク構造 ---
 # 複雑な判断（加減速）をさせるため、少し深めの [128, 128] に設定
@@ -19,6 +19,16 @@ LIDAR_DOWNSAMPLE_FACTOR = 2   # 1080 -> 540次元（残差処理のため高解�
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = True # 前ステップとのLiDAR差分（ΔLiDAR）を観測に含める
 
+# --- 正規化設定 ---
+NORMALIZE_OBSERVATIONS = True
+# Calibrated statistics based on 10000 random steps
+LIDAR_MEAN = 4.555
+LIDAR_STD = 3.894
+LIDAR_RESIDUAL_MEAN = -0.012
+LIDAR_RESIDUAL_STD = 0.096
+VEHICLE_STATE_MEAN = np.array([0.528, 0.003])  # [vel, steer]
+VEHICLE_STATE_STD = np.array([0.107, 0.115])
+
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
 MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
@@ -26,24 +36,24 @@ MAX_SPEED = 3.0            # 最高速度（直線で出す速度）
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -2000.0   # 衝突時の大きなペナルティ（より厳しく）
-REWARD_SURVIVAL = 0.01      # 1ステップ生存するごとの基本報酬（少し抑える）
+REWARD_SURVIVAL = 0.02      # 1ステップ生存するごとの基本報酬（少し抑える）
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
 REWARD_CENTRALITY_WEIGHT = 0.5 # コース中央を走ることへの報酬
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁からの距離（安全マージン）への報酬
 
 # --- パス設定 ---
-MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/berlin' # default map 
+#MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine' # default map 
 #levine: 定番の廊下マップ
 #skirk: テストコースのような形状のマップ
 #berlin: 市街地コース風
 #vegas: ラスベガス風
 #stata_basement: 複雑な地下通路マップ
-#MAP_PATH = '/workspace/my_maps/my_map'  # 狭い倉庫マップ
+MAP_PATH = '/workspace/my_maps/my_map'  # 狭い倉庫マップ
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [2.0, 1.0, 0.0] 
+START_POSE = [4.0, 4.0, 1.0] 
 
 MODEL_DIR = "/workspace/models"
 LOG_DIR = "/workspace/logs"

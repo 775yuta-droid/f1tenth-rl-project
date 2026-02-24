@@ -135,7 +135,7 @@ tensorboard --logdir logs --bind_all
 python3 scripts/enjoy-wide.py
 
 # オプション指定（ステップ数、モデル、保存先）
-python3 scripts/enjoy-wide.py --steps 3000 --model models/my_best_model --save my_drive.gif
+python3 scripts/enjoy-wide.py --steps 3000 --model models/my_best_model --save my_drive.mp4
 ```
 
 | 引数 | 説明 | デフォルト |
@@ -145,7 +145,7 @@ python3 scripts/enjoy-wide.py --steps 3000 --model models/my_best_model --save m
 | `--save` | 保存先パス | config内のパス |
 | `--no-render` | GIFを生成せずシミュレーションのみ | Off |
 
-### 3. ベンチマーク実行（Quantitative Evaluation）
+### 3. ベンチマーク実行（Quantitative Evalu ation）
 
 ```bash
 # 10エピソード走らせて平均性能を計測
