@@ -332,7 +332,6 @@ git commit -m "[feature] Add LSTM encoder
 - [Stable Baselines3](https://stable-baselines3.readthedocs.io/)
 - [F1Tenth Gym](https://github.com/f1tenth/f1tenth_gym)
 - [PPO 論文](https://arxiv.org/abs/1707.06347)
-```
 
 ## LICENCE
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
