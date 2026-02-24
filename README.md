@@ -1,37 +1,52 @@
 # F1Tenth RL Project
 
-This repository is dedicated to the F1Tenth autonomous racing platform utilizing reinforcement learning (RL). Below are the detailed instructions and specifications for setting up and running the project.
+## Project Overview
+This project focuses on combining reinforcement learning techniques with autonomous driving in the F1Tenth racing environment. The goal is to train agents that can navigate a race track autonomously, using various machine learning algorithms and simulation environments.
 
-## F1Tenth-Specific Content
-- The F1Tenth platform includes a set of features geared towards creating high-speed autonomous vehicles that can race in realistic environments.
-- The project includes ROS (Robot Operating System) integration, simulation environments, and real-world deployment capabilities.
-
-## LiDAR Explanation
-- LiDAR (Light Detection and Ranging) is used for sensing the environment. It helps in creating a 3D map of surroundings by measuring distances using laser pulses. The F1Tenth platform leverages LiDAR data for obstacle detection and navigation.
-
-## Docker Setup
-1. **Prerequisites**: Ensure you have Docker installed on your machine.
-2. **Build the Docker image**: Run the following command:
-   ```bash
-   docker build -t f1tenth-rl .
-   ```
-3. **Run the Docker container**: Use the command below to start the container:
-   ```bash
-   docker run -it f1tenth-rl
-   ```
-
-## config.py Details
-- The `config.py` file contains important parameters for the project, including learning rates, discount factors, and neural network architecture settings. Adjust these settings based on your computational resources and specific project needs.
+## Hardware Requirements
+- **Raspberry Pi 4 Model B**
+- **Compatible Cameras** (USB or Raspberry Pi camera)
+- **Motor Driver** (for controlling motors)
+- **Power Supply**
+- **Chassis** (to assemble the hardware components)
 
 ## Learning Time Estimates
-- Expect the training to take several hours to days depending on your hardware and the complexity of the model. Typical estimates:
-  - **Basic models**: 2-4 hours
-  - **Advanced models**: 1-3 days
+- **Basic Understanding of Python:** 2-4 weeks
+- **Introduction to Reinforcement Learning:** 3-6 weeks
+- **Familiarization with the F1Tenth Environment:** 1-2 weeks
 
-## Comprehensive Troubleshooting
-- **Installation issues**: Ensure all dependencies mentioned in requirements.txt are installed.
-- **Running issues**: Check Docker logs for any error messages and ensure that you are running the correct version of Docker.
-- **Performance issues**: Optimize the configuration in `config.py` to better suit your hardware.
-- **LiDAR data issues**: Verify that the LiDAR sensor is correctly set up and calibrated before running simulations. 
+## Quick Start Guide
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/775yuta-droid/f1tenth-rl-project.git
+   cd f1tenth-rl-project
+   ```
+2. **Set Up Your Hardware:** Follow the hardware setup guide provided in the repository.
+3. **Install Required Packages:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Run the Simulation:**
+   ```bash
+   python main.py
+   ```
 
-For further inquiries or collaboration, please reach out to the repository maintainer.
+## config.py Explanations
+- **API Keys:** Store API keys needed for connecting to external services.
+- **Model Parameters:** Adjust hyperparameters for training the reinforcement learning models.
+- **Environment Settings:** Configure the simulation environment settings for testing.
+
+## Troubleshooting
+- **Camera Issues:** Ensure the camera is properly connected and configured in the settings.
+- **Performance Problems:** Check the hardware specifications and optimize the code for better performance.
+
+## Implementation References
+- **Reinforcement Learning Resources:**
+  - Sutton, R. S., & Barto, A. G. (2018). "Reinforcement Learning: An Introduction."
+  - Various online courses on Coursera and Udacity about RL.
+- **F1Tenth Resources:**
+  - F1Tenth Autonomous Racing GitHub repository.
+  - Research papers on autonomous driving and racing algorithms.
+
+## Conclusion
+This project serves as a comprehensive guide to implementing reinforcement learning for autonomous racing. It combines practical hardware setups with theoretical learning, making it ideal for students and enthusiasts in the field.
