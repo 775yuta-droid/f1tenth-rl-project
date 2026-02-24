@@ -98,6 +98,7 @@ docker compose run f1-sim-latest bash
 sed -i 's/DEVICE = "cuda"/DEVICE = "cpu"/' scripts/config.py
 docker compose up -d
 docker compose run f1-sim-latest bash
+#CPUが一番速い
 ```
 
 ### 4. 動作確認
@@ -108,16 +109,6 @@ python3 verify_workflow.py
 ```
 
 ---
-
-## ⏱️ 学習時間の目安
-
-### ハードウェア別
-
-| GPU | TOTAL_TIMESTEPS | 所要時間 | 精度 |
-|-----|-----------------|---------|------|
-| RTX 5060 | 500,000 | 3-4時間 | 高 |
-| RTX 4090 | 1,500,000 | 2-3時間 | 最高 |
-| CPU | 100,000 | 12時間+ | - |
 
 ### 学習設定別
 
@@ -343,9 +334,3 @@ git commit -m "[feature] Add LSTM encoder
 - [PPO 論文](https://arxiv.org/abs/1707.06347)
 ```
 ---
-
-#### ✅ 完了！
-
-これで README.md が完全版に更新されます。
-
-何か問題があればお知らせください！👍
