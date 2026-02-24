@@ -1,51 +1,37 @@
 # F1Tenth RL Project
 
-## Overview
-This project implements reinforcement learning algorithms for autonomous racing in a simulated environment.
+This repository is dedicated to the F1Tenth autonomous racing platform utilizing reinforcement learning (RL). Below are the detailed instructions and specifications for setting up and running the project.
 
-## Hardware Requirements
-- **Computer**: A machine running Ubuntu 18.04 or later with a multi-core processor.
-- **RAM**: At least 16GB of RAM.
-- **GPU**: NVIDIA GPU recommended for improved performance, with CUDA support.
-- **Camera**: A webcam for real-time image processing (optional).
+## F1Tenth-Specific Content
+- The F1Tenth platform includes a set of features geared towards creating high-speed autonomous vehicles that can race in realistic environments.
+- The project includes ROS (Robot Operating System) integration, simulation environments, and real-world deployment capabilities.
+
+## LiDAR Explanation
+- LiDAR (Light Detection and Ranging) is used for sensing the environment. It helps in creating a 3D map of surroundings by measuring distances using laser pulses. The F1Tenth platform leverages LiDAR data for obstacle detection and navigation.
+
+## Docker Setup
+1. **Prerequisites**: Ensure you have Docker installed on your machine.
+2. **Build the Docker image**: Run the following command:
+   ```bash
+   docker build -t f1tenth-rl .
+   ```
+3. **Run the Docker container**: Use the command below to start the container:
+   ```bash
+   docker run -it f1tenth-rl
+   ```
+
+## config.py Details
+- The `config.py` file contains important parameters for the project, including learning rates, discount factors, and neural network architecture settings. Adjust these settings based on your computational resources and specific project needs.
 
 ## Learning Time Estimates
-| Task                      | Estimated Time |
-|---------------------------|----------------|
-| Setting up the environment | 2-4 hours      |
-| Understanding the code    | 1-3 days       |
-| Training the model        | 1-2 weeks      |
-| Testing & validation      | 3-5 days       |
+- Expect the training to take several hours to days depending on your hardware and the complexity of the model. Typical estimates:
+  - **Basic models**: 2-4 hours
+  - **Advanced models**: 1-3 days
 
-## Config.py Explanations
-- **learning_rate**: Determines how quickly the model learns.
-- **batch_size**: Number of samples processed before the model updates.
-- **num_episodes**: Total episodes to train the model. 
+## Comprehensive Troubleshooting
+- **Installation issues**: Ensure all dependencies mentioned in requirements.txt are installed.
+- **Running issues**: Check Docker logs for any error messages and ensure that you are running the correct version of Docker.
+- **Performance issues**: Optimize the configuration in `config.py` to better suit your hardware.
+- **LiDAR data issues**: Verify that the LiDAR sensor is correctly set up and calibrated before running simulations. 
 
-## Troubleshooting
-### Common Issues & Diagnostic Commands
-- **Environment Issues**:
-    - Check if all dependencies are installed:
-      ```bash
-      pip list
-      ```
-    - Verify CUDA installation:
-      ```bash
-      nvcc --version
-      ```
-- **Code Errors**:
-    - Run linter to find issues:
-      ```bash
-      flake8 .
-      ```
-
-## Implementation References
-- [OpenAI Gym Documentation](https://gym.openai.com/)
-- [TensorFlow Documentation](https://www.tensorflow.org/)
-
-## Contribution Guidelines
-- Fork the repository and create a new branch for your feature/bugfix.
-- Ensure that your code passes the existing tests and add new tests for your changes.
-- Submit a pull request with a clear description of your changes. 
-  
-Please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+For further inquiries or collaboration, please reach out to the repository maintainer.
