@@ -39,7 +39,13 @@ class F1TenthRL(gym.Env):
         # 2. 車両状態: [速度, ステアリング] (2次元)
         self.state_size = 2 if config.INCLUDE_VEHICLE_STATE else 0
         
-        total_obs_size = self.lidar_size + self.state_size
+        # 3. LiDAR残差: 現在と前ステップの差分 (同次元)
+        self.residual_size = self.lidar_size if config.INCLUDE_LIDAR_RESIDUAL else 0
+        
+        total_obs_size = self.lidar_size + self.residual_size + self.state_size
+        
+        # 前ステップのLiDAR（Δ=0で初期化）
+        self.prev_lidar = np.zeros(self.lidar_size, dtype=np.float32)
         
         # アクション空間: [ステアリング, 速度] の2次元
         self.action_space = gym.spaces.Box(
@@ -51,7 +57,7 @@ class F1TenthRL(gym.Env):
         
         # 観測空間の定義
         self.observation_space = gym.spaces.Box(
-            low=0, 
+            low=-30, 
             high=30, 
             shape=(total_obs_size,), 
             dtype=np.float32
@@ -63,20 +69,27 @@ class F1TenthRL(gym.Env):
         """
         # LiDARデータのダウンサンプリング (平均または最小値を取る)
         scans = raw_obs['scans'][0]
-        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).mean(axis=1)
+        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
+        
+        # ΔLiDAR（残差）の計算
+        delta_lidar = downsampled - self.prev_lidar
+        
+        # 現在値を次ステップの「前値」として保存
+        self.prev_lidar = downsampled.copy()
+        
+        parts = [downsampled]
+        
+        if config.INCLUDE_LIDAR_RESIDUAL:
+            parts.append(delta_lidar)
         
         if config.INCLUDE_VEHICLE_STATE:
             # 現在の車両状態を取得 [速度, ステアリング]
-            # シミュレータの内部状態から取得
             state = self.env.sim.agents[0].state
-            # state[3] は速度、ステアリング角はアクションから取るべきだが、ここでは正規化して追加
-            # 簡略化のため速度(km/h相当)と向きの微細な変化を想定
             vel = state[3] / config.MAX_SPEED
-            steer = state[2] # yawを代用、あるいは前回のアクションを保持して使う
-            vehicle_state = np.array([vel, steer], dtype=np.float32)
-            return np.concatenate([downsampled, vehicle_state]).astype(np.float32)
+            steer = state[2]
+            parts.append(np.array([vel, steer], dtype=np.float32))
         
-        return downsampled.astype(np.float32)
+        return np.concatenate(parts).astype(np.float32)
 
     def reset(self):
         """
@@ -86,8 +99,13 @@ class F1TenthRL(gym.Env):
         initial_poses = np.array([[sx, sy, syaw]])
         
         result = self.env.reset(poses=initial_poses)
-        obs = result[0] if isinstance(result, tuple) else result
-        return self._get_obs(obs)
+        raw_obs = result[0] if isinstance(result, tuple) else result
+        
+        # 初期状態のLiDARを取得してprev_lidarをセット
+        scans = raw_obs['scans'][0]
+        self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
+        
+        return self._get_obs(raw_obs)
 
     def step(self, action):
         """
