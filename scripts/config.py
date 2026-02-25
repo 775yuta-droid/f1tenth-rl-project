@@ -29,6 +29,9 @@ LIDAR_RESIDUAL_STD = 0.096
 VEHICLE_STATE_MEAN = np.array([0.528, 0.003])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.107, 0.115])
 
+# --- PPO 探索設定 ---
+PPO_ENT_COEF = 0.01  # エントロピー係数（探索を促進）
+
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
 MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
