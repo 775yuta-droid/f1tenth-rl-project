@@ -35,7 +35,7 @@ PPO_ENT_COEF = 0.005  # エントロピー係数（探索を促進、少なめ�
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
 MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
-MAX_SPEED = 3.0            # 最高速度（直線で出す速度）
+MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -2000.0   # 衝突時の大きなペナルティ（より厳しく）
@@ -62,11 +62,12 @@ START_POSE = [3.0, 4.0, 0.0]
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [3.0, 4.0, 0.0],   # デフォルト位置
-    [3.0, 4.0, 1.0],   # 少し左向き
-    [3.0, 4.0, 5.0],   # 右向き
-    [5.0, 4.0, 1.5],   # 少し北側
-    [2.0, 5.5, 0.5],   # 少し東側
+    [3.0, 4.0,  0.0],
+    [3.0, 5.0,  0.5],
+    [3.0, 5.0,  2.5],
+    [3.0, 4.0,  3.14],
+    [0.7, 5.0, -1.0],
+    [5.0, 4.5, -2.0],
 ]
 
 MODEL_DIR = "/workspace/models"
@@ -98,19 +99,20 @@ def calculate_reward(scans, action, done, current_speed, prev_x=0.0, prev_y=0.0,
     front_dist = np.min(scans[350:730])
     reward = (front_dist / 30.0) * REWARD_FRONT_WEIGHT
 
-    # 2. 速度報酬
-    # 前方が広い時は高速に、コーナーでは減速を促す（逆インセンティブ強化）
+    # 2. 速度報酬 / コーナー前ペナルティ
     speed_factor = current_speed / MAX_SPEED
     if front_dist < 2.0:
-        # コーナー直前: 速度報酬をゼロに▼減速すること自体が有利に
-        reward += speed_factor * REWARD_SPEED_WEIGHT * 0.0
+        # コーナー直前: 週を出すとペナルティ
+        reward -= speed_factor * REWARD_SPEED_WEIGHT * 1.0
+        progress_scale = 0.0  # progressボーナスなし
     elif front_dist < 4.0:
-        reward += speed_factor * REWARD_SPEED_WEIGHT * 0.2
+        reward += speed_factor * REWARD_SPEED_WEIGHT * 0.1
+        progress_scale = 0.3  # progressボーナス削減
     else:
         reward += speed_factor * REWARD_SPEED_WEIGHT
+        progress_scale = 1.0  # progressボーナス満額
 
     # 3. 壁接近ペナルティ（安全マージン）
-    # 閘値を 1.0m に引き上げて壁ギリギリ走行を抑制
     min_dist = np.min(scans)
     if min_dist < 1.0:
         reward -= REWARD_DISTANCE_WEIGHT * (1.0 - (min_dist / 1.0))
@@ -122,8 +124,9 @@ def calculate_reward(scans, action, done, current_speed, prev_x=0.0, prev_y=0.0,
     reward += centrality * REWARD_CENTRALITY_WEIGHT
 
     # 5. 走行距離報酬（円形走行抑制）
+    # コーナーではprogressボーナスは削減 / なし
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
-    reward += progress * REWARD_PROGRESS_WEIGHT
+    reward += progress * REWARD_PROGRESS_WEIGHT * progress_scale
 
     # 6. ステアリング・安定性（条件付き）
     if front_dist > 5.0:
