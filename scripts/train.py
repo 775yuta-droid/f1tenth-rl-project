@@ -18,6 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description='F1Tenth PPO Training')
     parser.add_argument('--steps', type=int, default=config.TOTAL_TIMESTEPS, help='学習ステップ数')
     parser.add_argument('--model', type=str, default=config.MODEL_PATH, help='保存するモデルファイル名(拡張子なし)')
+    parser.add_argument('--resume', type=str, default=None, help='継続学習元のモデルパス(拡張子なし)')
     args = parser.parse_args()
 
     if not os.path.exists(config.MODEL_DIR):
@@ -40,16 +41,28 @@ def main():
     env = F1TenthRL(config.MAP_PATH)
     env = DummyVecEnv([lambda: env])
 
-    model = PPO(
-        "MlpPolicy", 
-        env, 
-        learning_rate=config.LEARNING_RATE,
-        ent_coef=config.PPO_ENT_COEF,
-        policy_kwargs=dict(net_arch=config.NET_ARCH),
-        verbose=1, 
-        tensorboard_log=config.LOG_DIR,
-        device=config.DEVICE
-    )
+    if args.resume:
+        # --- 継続学習: 既存モデルをロードして学習を再開 ---
+        resume_path = args.resume if args.resume.endswith('.zip') else args.resume + '.zip'
+        print(f"継続学習モード: {resume_path} をロード")
+        model = PPO.load(
+            resume_path,
+            env=env,
+            device=config.DEVICE,
+            tensorboard_log=config.LOG_DIR
+        )
+    else:
+        # --- 新規学習 ---
+        model = PPO(
+            "MlpPolicy",
+            env,
+            learning_rate=config.LEARNING_RATE,
+            ent_coef=config.PPO_ENT_COEF,
+            policy_kwargs=dict(net_arch=config.NET_ARCH),
+            verbose=1,
+            tensorboard_log=config.LOG_DIR,
+            device=config.DEVICE
+        )
 
     print(f"--- 学習開始: {os.path.basename(args.model)} ---")
     print(f"Total Timesteps: {args.steps}")

@@ -130,7 +130,7 @@ def read_tfevents(path):
     return results
 
 if __name__ == '__main__':
-    path = '/home/yuta775/projects/f1tenth-rl-project/logs/PPO_17/events.out.tfevents.1771927753.MSI.1223.0'
+    path = '/home/yuta775/projects/f1tenth-rl-project/logs/PPO_20/events.out.tfevents.1772019164.MSI.2090.0'
     results = read_tfevents(path)
     print(f"取得できたメトリクス数: {len(results)}")
     for tag in sorted(results.keys()):

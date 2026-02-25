@@ -153,7 +153,7 @@ python3 enjoy-wide.py     # マップ上に走行軌跡表示
 ### ログ確認
 
 ```bash
-tensorboard --logdir=../logs --port=6006
+tensorboard --logdir logs --bind_all
 ```
 
 ---

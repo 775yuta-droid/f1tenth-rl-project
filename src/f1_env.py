@@ -46,6 +46,10 @@ class F1TenthRL(gym.Env):
         
         # 前ステップのLiDAR（Δ=0で初期化）
         self.prev_lidar = np.zeros(self.lidar_size, dtype=np.float32)
+
+        # 前ステップの車両位置（走行距離報酬用）
+        self.prev_x = 0.0
+        self.prev_y = 0.0
         
         # アクション空間: [ステアリング, 速度] の2次元
         self.action_space = gym.spaces.Box(
@@ -111,16 +115,25 @@ class F1TenthRL(gym.Env):
         """
         環境をリセットし、初期観測を返す
         """
-        sx, sy, syaw = config.START_POSE
+        # スタート位置の選択（ランダム化 or 固定）
+        if config.START_POSE_RANDOMIZE and len(config.START_POSES) > 0:
+            pose = config.START_POSES[np.random.randint(len(config.START_POSES))]
+        else:
+            pose = config.START_POSE
+        sx, sy, syaw = pose
         initial_poses = np.array([[sx, sy, syaw]])
-        
+
         result = self.env.reset(poses=initial_poses)
         raw_obs = result[0] if isinstance(result, tuple) else result
-        
+
         # 初期状態のLiDARを取得してprev_lidarをセット
         scans = raw_obs['scans'][0]
         self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
-        
+
+        # 前位置をリセット
+        self.prev_x = sx
+        self.prev_y = sy
+
         return self._get_obs(raw_obs)
 
     def step(self, action):
@@ -132,14 +145,22 @@ class F1TenthRL(gym.Env):
         
         obs, _, done, info = self.env.step(np.array([[steer, speed]]))
         raw_scans = obs['scans'][0]
-        
-        # 報酬計算 (報酬計算には生のLiDARデータを使う)
+
+        # 現在位置を取得
+        state = self.env.sim.agents[0].state
+        cur_x, cur_y = state[0], state[1]
+
+        # 報酬計算に前位置を渡す
         if info is None:
             info = {}
-        info['raw_scan'] = raw_scans # 描画用に生のデータを保持
-        reward = config.calculate_reward(raw_scans, action, done, speed)
-        
+        info['raw_scan'] = raw_scans
+        reward = config.calculate_reward(raw_scans, action, done, speed, self.prev_x, self.prev_y, cur_x, cur_y)
+
+        # 前位置を更新
+        self.prev_x = cur_x
+        self.prev_y = cur_y
+
         processed_obs = self._get_obs(obs)
-        
+
         return processed_obs, float(reward), bool(done), info
 
