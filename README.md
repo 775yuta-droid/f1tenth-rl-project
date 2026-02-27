@@ -190,8 +190,8 @@ MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/berlin'
 
 | パラメータ | 推奨値 | 説明 |
 |-----------|--------|------|
-| `TOTAL_TIMESTEPS` | 5,000,000〜25,000,000 | 総学習ステップ数 |
-| `LEARNING_RATE` | `3e-4` | 学習率 |
+| `TOTAL_TIMESTEPS` | 300,000〜1,500,000 | 総学習ステップ数 |
+| `LEARNING_RATE` | `1e-4` | 学習率 |
 | `NET_ARCH` | `[128, 128]` | ネットワーク構造 |
 
 ```python
@@ -221,7 +221,7 @@ NET_ARCH = [256, 256]
 
 ```python
 REWARD_COLLISION = -2000.0   # 衝突ペナルティ
-REWARD_SURVIVAL  = 0.01      # ステップごとの生存報酬
+REWARD_SURVIVAL  = 0.02      # ステップごとの生存報酬
 REWARD_FRONT_WEIGHT = 3.0    # 前方空きスペースへの報酬
 REWARD_SPEED_WEIGHT = 1.0    # 速度ボーナス
 ```
@@ -321,7 +321,7 @@ actual_speed    = MIN_SPEED + (throttle + 1.0) * (MAX_SPEED - MIN_SPEED) / 2.0
 
 ---
 
-## licence
+## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
