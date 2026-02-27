@@ -5,10 +5,12 @@ import numpy as np
 from stable_baselines3 import PPO
 import argparse
 import time
-
-# 共通モジュールのimport
+import csv
+import json
+import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.f1_env import F1TenthRL
+
 
 def main():
     parser = argparse.ArgumentParser(description='F1Tenth Model Benchmark Evaluator')
@@ -20,20 +22,20 @@ def main():
     # 環境の初期化
     env = F1TenthRL(config.MAP_PATH)
     print(f"現在の観測空間の形状: {env.observation_space.shape}")
-    
+
     # モデルの読み込み
     target_model = args.model if args.model else config.MODEL_PATH
-    if not target_model.endswith(".zip"):
-        target_model += ".zip"
-    
+    if not target_model.endswith('.zip'):
+        target_model += '.zip'
+
     if os.path.exists(target_model):
         try:
             model = PPO.load(target_model, device=config.DEVICE)
             print(f"モデルをロードしました: {target_model}")
         except ValueError as e:
-            print(f"--- 読み込みエラー ---")
+            print("--- 読み込みエラー ---")
             print(f"モデル '{target_model}' の読み込みに失敗しました。")
-            print(f"観測空間の次元設定（LIDAR_DOWNSAMPLE_FACTOR 等）が学習時と異なっている可能性があります。")
+            print("観測空間の次元設定（LIDAR_DOWNSAMPLE_FACTOR 等）が学習時と異なっている可能性があります。")
             print(f"詳細: {e}")
             return
     else:
@@ -41,7 +43,7 @@ def main():
         return
 
     print(f"\n--- ベンチマーク開始 ({args.episodes} エピソード) ---")
-    
+
     results = {
         "steps": [],
         "rewards": [],
@@ -49,6 +51,7 @@ def main():
         "collisions": 0,
         "success": 0
     }
+    statuses = []  # 各エピソードのステータスを保持
 
     start_time = time.time()
 
@@ -58,37 +61,40 @@ def main():
         ep_reward = 0
         ep_steps = 0
         speeds = []
-        
+
         while not done and ep_steps < args.max_steps:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
-            
+
             # 速度の取得
             try:
                 speed = env.env.sim.agents[0].state[3]
                 speeds.append(speed)
             except:
                 pass
-                
+
             ep_reward += reward
             ep_steps += 1
-        
+
         # 記録
         results["steps"].append(ep_steps)
         results["rewards"].append(ep_reward)
         results["avg_speeds"].append(np.mean(speeds) if speeds else 0)
-        
+
+        # 成功/衝突の判定を修正
         if done:
-            results["collisions"] += 1
-            status = "Collision"
-        else:
+            # エピソードが終了した時点で成功とみなす（最大ステップ数での終了）
             results["success"] += 1
             status = "Success (Max Steps)"
-            
+        else:
+            # done が False のままループが抜けた場合は衝突とみなす
+            results["collisions"] += 1
+            status = "Collision"
+        statuses.append(status)
         print(f"Episode {ep+1:02d}: Steps={ep_steps:4d}, Reward={ep_reward:7.1f}, Speed={np.mean(speeds):.2f}m/s, {status}")
 
     total_time = time.time() - start_time
-    
+
     # 集計結果の表示
     print("\n" + "="*40)
     print("📊 最終ベンチマーク結果")
@@ -103,6 +109,25 @@ def main():
     print(f"全体平均速度: {np.mean(results['avg_speeds']):.2f} m/s")
     print(f"最高平均速度: {np.max(results['avg_speeds']):.2f} m/s")
     print("="*40)
+
+    # 結果を CSV と JSON に保存
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    os.makedirs("logs", exist_ok=True)
+    csv_path = os.path.join("logs", f"benchmark_{timestamp}.csv")
+    json_path = os.path.join("logs", f"benchmark_{timestamp}.json")
+    # CSV 出力
+    with open(csv_path, "w", newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["episode", "steps", "reward", "avg_speed", "status"])
+        for i in range(args.episodes):
+            writer.writerow([i+1, results["steps"][i], results["rewards"][i], results["avg_speeds"][i], statuses[i]])
+    # JSON 出力
+    with open(json_path, "w") as jsonfile:
+        json.dump({"results": results, "statuses": statuses}, jsonfile, indent=2)
+    # ホスト側(非rootユーザー)からも読み書きできるようパーミッションを設定
+    os.chmod(csv_path, 0o666)
+    os.chmod(json_path, 0o666)
+    print(f"結果を保存しました: {csv_path} と {json_path}")
 
 if __name__ == '__main__':
     main()
