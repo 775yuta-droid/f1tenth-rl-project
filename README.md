@@ -31,11 +31,12 @@ F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに自律�
 ```
 f1tenth-rl-project/
 ├── src/
-│   └── f1_env.py              # F1Tenth Gym 環境ラッパー
+│   ├── f1_env.py              # F1Tenth Gym 環境ラッパー
+│   └── rewards.py             # ⭐ 報酬計算ロジック（RewardConfig で柔軟に設定）
 ├── scripts/
 │   ├── config.py              # ⭐ 全体設定ファイル
 │   ├── train.py               # 学習スクリプト
-│   ├── evaluate.py            # 評価スクリプト
+│   ├── evaluate.py            # 評価スクリプト（結果を CSV/JSON に保存）
 │   ├── enjoy_wide.py          # マップ上に走行軌跡を表示するビジュアライザ
 │   ├── verify_workflow.py     # 環境動作確認スクリプト
 │   ├── view_spawn.py          # スポーン位置確認ツール
@@ -49,12 +50,13 @@ f1tenth-rl-project/
 │       └── test_normalization.py # 正規化の動作確認
 ├── my_maps/                   # カスタムマップ
 ├── models/                    # 学習済みモデル（.gitignore対象）
-├── logs/                      # TensorBoard ログ（.gitignore対象）
+├── logs/                      # TensorBoard ログ・評価結果（.gitignore対象）
 ├── gif/                       # 出力動画（.gitignore対象）
 ├── sharing/                   # チーム内共有資料
 ├── Dockerfile                 # Dockerイメージ定義
 └── requirements.txt           # Python依存ライブラリ
 ```
+
 
 ---
 
@@ -138,6 +140,13 @@ python3 scripts/train.py --steps 500000 --resume models/checkpoints/my_model_100
 python3 scripts/evaluate.py --episodes 10 --model models/my_model
 ```
 
+評価が完了すると `logs/benchmark_YYYYMMDD_HHMMSS.csv` と `.json` が生成されます。
+
+```bash
+# 最新の結果を確認
+cat /workspace/logs/benchmark_*.csv | tail -20
+```
+
 ### ビジュアライザ（走行映像の生成）
 
 ```bash
@@ -185,6 +194,23 @@ MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/berlin'
 > python3 scripts/tests/test_calibration.py
 > ```
 > 出力された値を `config.py` の `LIDAR_MEAN` 等に反映してください。
+
+### 環境変数でのパス変更
+
+`config.py` のパス設定は環境変数で上書き可能です。Docker 起動時や CI 環境で便利です：
+
+```bash
+# docker compose exec に環境変数を渡す例
+docker compose exec -e MAP_PATH=/workspace/my_maps/my_map f1-sim-latest python3 scripts/train.py
+
+# または docker-compose.yml の environment セクションに追記
+```
+
+| 環境変数 | デフォルト値 | 説明 |
+|---------|-------------|------|
+| `MAP_PATH` | `/workspace/my_maps/my_map` | 使用するマップ |
+| `MODEL_DIR` | `/workspace/models` | モデルの保存先 |
+| `LOG_DIR` | `/workspace/logs` | ログの保存先 |
 
 ### 学習パラメータ
 
@@ -315,8 +341,8 @@ actual_speed    = MIN_SPEED + (throttle + 1.0) * (MAX_SPEED - MIN_SPEED) / 2.0
 ## 📝 バージョン情報
 
 - **作成**: 2026-02-24
-- **最終更新**: 2026-02-27
-- **バージョン**: 1.1.0
+- **最終更新**: 2026-02-28
+- **バージョン**: 1.2.0
 - **対応 Python**: 3.9+
 
 ---

@@ -17,6 +17,10 @@ venv/
 /logs/*
 !/logs/.gitkeep
 
+# 評価結果ファイル（実行のたびに生成されるため除外）
+logs/benchmark_*.csv
+logs/benchmark_*.json
+
 # --- 学習済みモデルファイル ---
 # モデルファイルは重いのでGitには含めない
 # 共有する場合はGit LFSを使用するか、手動で管理
