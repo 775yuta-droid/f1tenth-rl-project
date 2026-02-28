@@ -47,13 +47,23 @@ REWARD_DISTANCE_WEIGHT = 1.0   # 壁からの距離（安全マージン）へ�
 REWARD_PROGRESS_WEIGHT = 2.0   # 走行距離報酬（円形走行を抑制）
 
 # --- パス設定 ---
-#MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine' # default map 
-#levine: 定番の廊下マップ
-#skirk: テストコースのような形状のマップ
-#berlin: 市街地コース風
-#vegas: ラスベガス風
-#stata_basement: 複雑な地下通路マップ
-MAP_PATH = '/workspace/my_maps/my_map'  # 狭い倉庫マップ
+# 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。
+#   MAP_PATH: 使用するマップ（拡張子なし）
+#   MODEL_DIR: モデルの保存先
+#   LOG_DIR:   TensorBoard ログの保存先
+#
+# 利用可能なマップ:
+#   levine        -- 定番の廊下マップ
+#   skirk         -- テストコース風
+#   berlin        -- 市街地コース風
+#   vegas         -- ラスベガス風
+#   stata_basement -- 複雑な地下通路マップ
+#   my_map        -- 独自の倉庫マップ（デフォルト）
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/my_map")
+MODEL_DIR = os.environ.get("MODEL_DIR", "/workspace/models")
+LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
@@ -70,69 +80,21 @@ START_POSES = [
     [5.0, 4.5, -2.0],
 ]
 
-MODEL_DIR = "/workspace/models"
-LOG_DIR = "/workspace/logs"
 # モデル名に設定を反映させて管理しやすくする
-MAP_NAME = os.path.basename(MAP_PATH)
+MAP_NAME   = os.path.basename(MAP_PATH)
 MODEL_NAME = f"ppo_f1_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
-# プロジェクトルートのgifディレクトリを確実に指すように修正
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GIF_DIR = os.path.join(PROJECT_ROOT, "gif")
-GIF_PATH = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
+GIF_DIR    = os.path.join(PROJECT_ROOT, "gif")
+GIF_PATH   = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
 
-# --- 共通の報酬計算ロジック ---
+# 報酬計算ロジックは src/rewards.py に移動しました。
+# 後方互換のため、このファイルから直接呼び出さないでください。
 def calculate_reward(scans, action, done, current_speed, prev_x=0.0, prev_y=0.0, cur_x=0.0, cur_y=0.0):
-    """
-    scans: LiDARの距離データ (1080点)
-    action: AIの出力 [ステアリング, 速度]
-    done: 衝突判定
-    current_speed: 現在の車の速度(m/s)
-    prev_x, prev_y: 前ステップの位置
-    cur_x, cur_y: 現在の位置
-    """
-    if done:
-        return REWARD_COLLISION
-
-    # 1. 前方空間報酬（視野を±45度相当まで拡大: 350～730番）
-    # これによりコーナーの山を早めに認識できる
-    front_dist = np.min(scans[350:730])
-    reward = (front_dist / 30.0) * REWARD_FRONT_WEIGHT
-
-    # 2. 速度報酬 / コーナー前ペナルティ
-    speed_factor = current_speed / MAX_SPEED
-    if front_dist < 2.0:
-        # コーナー直前: 週を出すとペナルティ
-        reward -= speed_factor * REWARD_SPEED_WEIGHT * 1.0
-        progress_scale = 0.0  # progressボーナスなし
-    elif front_dist < 4.0:
-        reward += speed_factor * REWARD_SPEED_WEIGHT * 0.1
-        progress_scale = 0.3  # progressボーナス削減
-    else:
-        reward += speed_factor * REWARD_SPEED_WEIGHT
-        progress_scale = 1.0  # progressボーナス満額
-
-    # 3. 壁接近ペナルティ（安全マージン）
-    min_dist = np.min(scans)
-    if min_dist < 1.0:
-        reward -= REWARD_DISTANCE_WEIGHT * (1.0 - (min_dist / 1.0))
-
-    # 4. 中央維持報酬 (Lateral Centrality)
-    left_dist = np.min(scans[700:740])
-    right_dist = np.min(scans[340:380])
-    centrality = 1.0 - abs(left_dist - right_dist) / (left_dist + right_dist + 1e-6)
-    reward += centrality * REWARD_CENTRALITY_WEIGHT
-
-    # 5. 走行距離報酬（円形走行抑制）
-    # コーナーではprogressボーナスは削減 / なし
-    progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
-    reward += progress * REWARD_PROGRESS_WEIGHT * progress_scale
-
-    # 6. ステアリング・安定性（条件付き）
-    if front_dist > 5.0:
-        reward += (1.0 - abs(action[0])) * 0.2
-        reward += REWARD_SURVIVAL
-    else:
-        reward += REWARD_SURVIVAL
-    
-    return reward
+    """Deprecated: src/rewards.calculate_reward() を使用してください。"""
+    import warnings
+    warnings.warn(
+        "config.calculate_reward() は非推奨です。src/rewards.calculate_reward() を使用してください。",
+        DeprecationWarning, stacklevel=2
+    )
+    from src.rewards import calculate_reward as _calculate_reward
+    return _calculate_reward(scans, action, done, current_speed, prev_x, prev_y, cur_x, cur_y)

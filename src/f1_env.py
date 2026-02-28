@@ -14,6 +14,7 @@ import os
 # scriptsディレクトリからconfigをimportできるようにパスを追加
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 import config
+from src.rewards import calculate_reward
 
 
 class F1TenthRL(gym.Env):
@@ -154,7 +155,7 @@ class F1TenthRL(gym.Env):
         if info is None:
             info = {}
         info['raw_scan'] = raw_scans
-        reward = config.calculate_reward(raw_scans, action, done, speed, self.prev_x, self.prev_y, cur_x, cur_y)
+        reward = calculate_reward(raw_scans, action, done, speed, self.prev_x, self.prev_y, cur_x, cur_y)
 
         # 前位置を更新
         self.prev_x = cur_x
