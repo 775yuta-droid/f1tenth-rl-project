@@ -5,10 +5,11 @@ import os
 import argparse
 from PIL import Image
 
-# 共通モジュールから config を読み込む
-import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import config
+# プロジェクトルートをパスに追加
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
+
+from src import config
 
 def view_spawn():
     map_yaml_path = config.MAP_PATH + ".yaml"

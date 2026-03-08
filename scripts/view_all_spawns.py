@@ -12,9 +12,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from PIL import Image
 
-# config をインポート
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-import config
+# プロジェクトルートをパスに追加
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
+
+from src import config
 
 # ---- マップ読み込み ----
 map_yaml = config.MAP_PATH + ".yaml"
