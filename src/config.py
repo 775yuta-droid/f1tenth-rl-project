@@ -22,12 +22,12 @@ INCLUDE_LIDAR_RESIDUAL = True # 前ステップとのLiDAR差分（ΔLiDAR）を
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
 # Calibrated statistics based on 10000 random steps
-LIDAR_MEAN = 4.555
-LIDAR_STD = 3.894
-LIDAR_RESIDUAL_MEAN = -0.012
-LIDAR_RESIDUAL_STD = 0.096
-VEHICLE_STATE_MEAN = np.array([0.528, 0.003])  # [vel, steer]
-VEHICLE_STATE_STD = np.array([0.107, 0.115])
+LIDAR_MEAN = 5.130
+LIDAR_STD = 3.560
+LIDAR_RESIDUAL_MEAN = -0.006
+LIDAR_RESIDUAL_STD = 0.084
+VEHICLE_STATE_MEAN = np.array([0.577, -0.005])  # [vel, steer]
+VEHICLE_STATE_STD = np.array([0.093, 0.125])
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.005  # エントロピー係数（探索を促進、少なめ）
