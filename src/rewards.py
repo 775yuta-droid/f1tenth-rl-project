@@ -11,6 +11,7 @@ calculate_reward() が唯一のエントリーポイントです。
 """
 from dataclasses import dataclass, field
 import numpy as np
+from src import config
 
 
 @dataclass
@@ -27,11 +28,7 @@ class RewardConfig:
 
 
 def _load_default_config() -> RewardConfig:
-    """scripts/config.py からデフォルト設定を読み込む。"""
-    import sys
-    import os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-    import config
+    """src/config.py からデフォルト設定を読み込む。"""
     return RewardConfig(
         reward_collision=config.REWARD_COLLISION,
         reward_survival=config.REWARD_SURVIVAL,

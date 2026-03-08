@@ -3,15 +3,14 @@ import os
 import numpy as np
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(PROJECT_ROOT)
-sys.path.append(os.path.join(PROJECT_ROOT, 'scripts'))
+sys.path.insert(0, PROJECT_ROOT)
 
-import config
+from src import config
+from src.f1_env import F1TenthRL
+
 # データ収集時は一時的に正規化を無効化
 config.NORMALIZE_OBSERVATIONS = False
 config.MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine' # default map for safety
-
-from src.f1_env import F1TenthRL
 
 def calibrate():
     env = F1TenthRL(config.MAP_PATH)

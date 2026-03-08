@@ -1,0 +1,10 @@
+numpy
+gym
+stable-baselines3
+imageio
+matplotlib
+Pillow
+pyyaml
+
+[dev]
+pytest>=7

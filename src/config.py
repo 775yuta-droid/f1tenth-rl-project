@@ -88,13 +88,4 @@ GIF_DIR    = os.path.join(PROJECT_ROOT, "gif")
 GIF_PATH   = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
 
 # 報酬計算ロジックは src/rewards.py に移動しました。
-# 後方互換のため、このファイルから直接呼び出さないでください。
-def calculate_reward(scans, action, done, current_speed, prev_x=0.0, prev_y=0.0, cur_x=0.0, cur_y=0.0):
-    """Deprecated: src/rewards.calculate_reward() を使用してください。"""
-    import warnings
-    warnings.warn(
-        "config.calculate_reward() は非推奨です。src/rewards.calculate_reward() を使用してください。",
-        DeprecationWarning, stacklevel=2
-    )
-    from src.rewards import calculate_reward as _calculate_reward
-    return _calculate_reward(scans, action, done, current_speed, prev_x, prev_y, cur_x, cur_y)
+# from src.rewards import calculate_reward

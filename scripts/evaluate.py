@@ -1,14 +1,13 @@
-import config
 import os
 import sys
 import numpy as np
-from stable_baselines3 import PPO
 import argparse
 import time
 import csv
 import json
 import datetime
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from stable_baselines3 import PPO
+from src import config
 from src.f1_env import F1TenthRL
 
 

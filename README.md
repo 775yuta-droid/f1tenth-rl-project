@@ -32,9 +32,9 @@ F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに自律�
 f1tenth-rl-project/
 ├── src/
 │   ├── f1_env.py              # F1Tenth Gym 環境ラッパー
-│   └── rewards.py             # ⭐ 報酬計算ロジック（RewardConfig で柔軟に設定）
+│   ├── rewards.py             # ⭐ 報酬計算ロジック（RewardConfig で柔軟に設定）
+│   └── config.py              # ⭐ 全体設定ファイル
 ├── scripts/
-│   ├── config.py              # ⭐ 全体設定ファイル
 │   ├── train.py               # 学習スクリプト
 │   ├── evaluate.py            # 評価スクリプト（結果を CSV/JSON に保存）
 │   ├── enjoy_wide.py          # マップ上に走行軌跡を表示するビジュアライザ
@@ -123,6 +123,13 @@ python3 scripts/verify_workflow.py
 ---
 
 ## 📚 主要スクリプト
+
+### インストール
+
+```bash
+# プロジェクトディレクトリで実行（開発モード）
+pip install -e .
+```
 
 ### 学習
 

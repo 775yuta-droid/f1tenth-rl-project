@@ -7,17 +7,19 @@ import os
 
 # パスの設定 (scripts/tests/ から2階層上がプロジェクトルート)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(PROJECT_ROOT)
+sys.path.insert(0, PROJECT_ROOT)
+
+from src import config
+from src.rewards import calculate_reward
+from src.f1_env import F1TenthRL
 
 print("=" * 50)
 print("クリーンアップ後のコードテスト")
 print("=" * 50)
 
 # テスト1: configモジュールのimport
-print("\n[テスト1] configモジュールのimport...")
+print("\n[テスト1] src.configモジュールのimport...")
 try:
-    sys.path.append(os.path.join(PROJECT_ROOT, 'scripts'))
-    import config
     print(f"  ✓ 成功")
     print(f"    - DEVICE: {config.DEVICE}")
     print(f"    - TOTAL_TIMESTEPS: {config.TOTAL_TIMESTEPS}")
@@ -29,7 +31,6 @@ except Exception as e:
 # テスト2: 環境クラスのimport
 print("\n[テスト2] F1TenthRL環境クラスのimport...")
 try:
-    from src.f1_env import F1TenthRL
     print(f"  ✓ 成功")
 except Exception as e:
     print(f"  ✗ 失敗: {e}")
@@ -82,11 +83,11 @@ print("\n[テスト6] 報酬関数のテスト...")
 try:
     scans = np.ones(1080) * 10.0  # 全方向10m
     action = np.array([0.0, 0.5])
-    reward = config.calculate_reward(scans, action, False, 2.0)
+    reward = calculate_reward(scans, action, False, 2.0)
     print(f"  ✓ 成功")
     print(f"    - 通常時の報酬: {reward:.4f}")
     
-    reward_collision = config.calculate_reward(scans, action, True, 2.0)
+    reward_collision = calculate_reward(scans, action, True, 2.0)
     print(f"    - 衝突時の報酬: {reward_collision:.4f}")
 except Exception as e:
     print(f"  ✗ 失敗: {e}")

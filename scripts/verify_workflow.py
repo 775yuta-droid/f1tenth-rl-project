@@ -5,13 +5,8 @@ import time
 import numpy as np
 from stable_baselines3 import PPO
 
-# 基準ディレクトリの設定
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-sys.path.append(PROJECT_ROOT)
-sys.path.append(SCRIPT_DIR)
-
-import config
+from src import config
 from src.f1_env import F1TenthRL
 
 def run_command(command, description):

@@ -1,4 +1,3 @@
-import config
 import os
 import sys
 import yaml
@@ -8,9 +7,7 @@ from stable_baselines3 import PPO
 from PIL import Image
 import imageio
 import argparse
-
-# 共通モジュールのimport
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src import config
 from src.f1_env import F1TenthRL
 
 class MapRenderer:

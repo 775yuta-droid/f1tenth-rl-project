@@ -3,15 +3,14 @@ import os
 import numpy as np
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(PROJECT_ROOT)
-sys.path.append(os.path.join(PROJECT_ROOT, 'scripts'))
+sys.path.insert(0, PROJECT_ROOT)
 
-import config
+from src import config
+from src.f1_env import F1TenthRL
+
 # Ensure normalization is active
 config.NORMALIZE_OBSERVATIONS = True
 config.MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/levine'
-
-from src.f1_env import F1TenthRL
 
 def test_norm():
     env = F1TenthRL(config.MAP_PATH)

@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: f1tenth-rl
+Version: 1.2.0
+Summary: F1Tenth autonomous racing with deep reinforcement learning (PPO)
+Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: gym
+Requires-Dist: stable-baselines3
+Requires-Dist: imageio
+Requires-Dist: matplotlib
+Requires-Dist: Pillow
+Requires-Dist: pyyaml
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Dynamic: license-file

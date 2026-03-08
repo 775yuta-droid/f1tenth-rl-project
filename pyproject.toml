@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=45"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f1tenth-rl"
+version = "1.2.0"
+description = "F1Tenth autonomous racing with deep reinforcement learning (PPO)"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "gym",
+    "stable-baselines3",
+    "imageio",
+    "matplotlib",
+    "Pillow",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["scripts/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

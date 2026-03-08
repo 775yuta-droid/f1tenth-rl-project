@@ -8,9 +8,8 @@ import os
 import sys
 
 # 共通モジュールのimport
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.f1_env import F1TenthRL
-import config
+from src import config
 
 import argparse
 

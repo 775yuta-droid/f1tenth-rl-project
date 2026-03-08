@@ -11,9 +11,7 @@ import numpy as np
 import sys
 import os
 
-# scriptsディレクトリからconfigをimportできるようにパスを追加
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-import config
+from src import config
 from src.rewards import calculate_reward
 
 
