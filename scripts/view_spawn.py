@@ -2,6 +2,7 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
 import argparse
 from PIL import Image
 

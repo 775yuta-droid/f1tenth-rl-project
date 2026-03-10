@@ -25,7 +25,7 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _default_threads))
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 1500000
+TOTAL_TIMESTEPS = 3000000
 LEARNING_RATE = 1e-4
 
 # --- ネットワーク構造 ---
@@ -40,12 +40,12 @@ INCLUDE_LIDAR_RESIDUAL = True # 前ステップとのLiDAR差分（ΔLiDAR）を
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
 # Calibrated statistics based on 10000 random steps
-LIDAR_MEAN = 5.130
-LIDAR_STD = 3.560
-LIDAR_RESIDUAL_MEAN = -0.006
-LIDAR_RESIDUAL_STD = 0.084
-VEHICLE_STATE_MEAN = np.array([0.577, -0.005])  # [vel, steer]
-VEHICLE_STATE_STD = np.array([0.093, 0.125])
+LIDAR_MEAN = 4.639
+LIDAR_STD = 3.119
+LIDAR_RESIDUAL_MEAN = -0.007
+LIDAR_RESIDUAL_STD = 0.072
+VEHICLE_STATE_MEAN = np.array([0.578, -0.004])  # [vel, steer]
+VEHICLE_STATE_STD = np.array([0.092, 0.120])
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.005  # エントロピー係数（探索を促進、少なめ）
@@ -91,11 +91,11 @@ START_POSE = [3.0, 4.0, 0.0]
 START_POSE_RANDOMIZE = True
 START_POSES = [
     [3.0, 4.0,  0.0],
-    [3.0, 5.0,  0.5],
+  #  [3.0, 5.0,  0.5],
     [3.0, 5.0,  2.5],
-    [3.0, 4.0,  3.14],
+    #[3.0, 4.0,  3.14],
     [0.7, 5.0, -1.0],
-    [5.0, 4.5, -2.5],
+    #[5.0, 4.5, -2.5],
 ]
 
 # モデル名に設定を反映させて管理しやすくする

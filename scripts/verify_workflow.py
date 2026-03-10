@@ -1,5 +1,9 @@
 import os
 import sys
+
+# プロジェクトのルートディレクトリをsys.pathに追加
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import subprocess
 import time
 import numpy as np
