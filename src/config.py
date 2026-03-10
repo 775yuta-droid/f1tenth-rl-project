@@ -1,9 +1,27 @@
 import numpy as np
 import os
 
+import multiprocessing
+
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
 DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
+
+# --- CPU スレッド最適化 ---
+# F1Tenthシミュレーターはシングルスレッド動作のため、
+# PyTorchのスレッドが多すぎるとオーバーヘッドで逆に遅くなる。
+#
+# 手動で指定したい場合: 環境変数 TORCH_NUM_THREADS を設定する。
+#   例: TORCH_NUM_THREADS=4 python3 scripts/train.py
+#
+# 未設定の場合は物理コア数から自動判定:
+#   ~12コア (Laptop)  : コア数をそのまま使用 (例: i5-11400H → 12スレッド)
+#   13コア以上 (Desktop): 高コア数はシミュでは逆効果のため上限4に制御
+#                          (例: Core Ultra 7 265 / 20コア → 4スレッド)
+_cpu_count = multiprocessing.cpu_count()
+_default_threads = _cpu_count if _cpu_count <= 12 else 4
+TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _default_threads))
+
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨

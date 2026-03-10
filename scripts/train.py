@@ -6,6 +6,8 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 import os
 import sys
+import multiprocessing
+import torch
 
 # 共通モジュールのimport
 from src.f1_env import F1TenthRL
@@ -14,6 +16,14 @@ from src import config
 import argparse
 
 def main():
+    # --- CPU スレッド数の最適化 ---
+    # config.TORCH_NUM_THREADS: 自動判定 or 環境変数 TORCH_NUM_THREADS で上書き可
+    torch.set_num_threads(config.TORCH_NUM_THREADS)
+    os.environ["OMP_NUM_THREADS"] = str(config.TORCH_NUM_THREADS)
+    os.environ["MKL_NUM_THREADS"] = str(config.TORCH_NUM_THREADS)
+    print(f"[CPU] コア数: {multiprocessing.cpu_count()}, 使用スレッド数: {config.TORCH_NUM_THREADS}")
+    print(f"      (変更する場合: TORCH_NUM_THREADS=<数> python3 scripts/train.py)")
+
     parser = argparse.ArgumentParser(description='F1Tenth PPO Training')
     parser.add_argument('--steps', type=int, default=config.TOTAL_TIMESTEPS, help='学習ステップ数')
     parser.add_argument('--model', type=str, default=config.MODEL_PATH, help='保存するモデルファイル名(拡張子なし)')

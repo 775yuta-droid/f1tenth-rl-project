@@ -45,15 +45,16 @@ f1tenth-rl-project/
 │   │   ├── read_logs.py       # TensorBoard ログ解析
 │   │   └── read_tfevents.py   # TFEvents ファイル解析（依存なし）
 │   └── tests/
-│       ├── test_cleanup.py    # 環境・import の動作確認
-│       ├── test_calibration.py # 観測正規化パラメータの収集
-│       └── test_normalization.py # 正規化の動作確認
+│       ├── test_cleanup.py        # 環境・import の動作確認
+│       ├── test_rewards.py        # 報酬計算ロジックの単体テスト
+│       ├── test_calibration.py    # 観測正規化パラメータの収集
+│       └── test_normalization.py  # 正規化の動作確認
 ├── my_maps/                   # カスタムマップ
 ├── models/                    # 学習済みモデル（.gitignore対象）
 ├── logs/                      # TensorBoard ログ・評価結果（.gitignore対象）
 ├── gif/                       # 出力動画（.gitignore対象）
 ├── sharing/                   # チーム内共有資料
-├── Dockerfile                 # Dockerイメージ定義
+├── Dockerfile.2204            # Dockerイメージ定義（Ubuntu 22.04 / RTX 50系対応）
 └── requirements.txt           # Python依存ライブラリ
 ```
 
@@ -111,7 +112,9 @@ docker compose exec f1-sim-latest bash
 ```
 
 > [!NOTE]
-> CPUのみの環境では `scripts/config.py` の `DEVICE = "cuda"` を `"cpu"` に変更してください。
+> CPUのみの環境では `src/config.py` の `DEVICE` は既に `"cpu"` に設定されています。
+> 多コアCPU（13コア以上）では PyTorch のスレッド数が自動的に最適化されます。
+> 手動で変更する場合: `TORCH_NUM_THREADS=4 python3 scripts/train.py`
 
 ### 5. 動作確認
 
@@ -178,7 +181,7 @@ python3 scripts/view_all_spawns.py     # 全スポーン位置を一括表示
 
 ---
 
-## ⚙️ 設定ファイル (scripts/config.py)
+## ⚙️ 設定ファイル (src/config.py)
 
 ### マップの切り替え
 
@@ -218,6 +221,7 @@ docker compose exec -e MAP_PATH=/workspace/my_maps/my_map f1-sim-latest python3 
 | `MAP_PATH` | `/workspace/my_maps/my_map` | 使用するマップ |
 | `MODEL_DIR` | `/workspace/models` | モデルの保存先 |
 | `LOG_DIR` | `/workspace/logs` | ログの保存先 |
+| `TORCH_NUM_THREADS` | 自動判定 | PyTorchのスレッド数（13コア以上は4に制限）|
 
 ### 学習パラメータ
 
@@ -348,9 +352,9 @@ actual_speed    = MIN_SPEED + (throttle + 1.0) * (MAX_SPEED - MIN_SPEED) / 2.0
 ## 📝 バージョン情報
 
 - **作成**: 2026-02-24
-- **最終更新**: 2026-02-28
-- **バージョン**: 1.2.0
-- **対応 Python**: 3.9+
+- **最終更新**: 2026-03-10
+- **バージョン**: 1.3.0
+- **対応 Python**: 3.10+
 
 ---
 

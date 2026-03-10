@@ -2,17 +2,17 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 .venv/
 env/
 venv/
 
-# --- 学習データ・ログ（重いので除外） ---
-# 学習中の動画(gif)や画像(png)
-*.gif
-*.png
-*.jpg
-*.mp4
+# --- テスト・キャッシュ ---
+.pytest_cache/
+test_results/
+*.test.log
 
+# --- 学習データ・ログ（重いので除外） ---
 # 学習ログ (Tensorboardなど)
 /logs/*
 !/logs/.gitkeep
@@ -29,14 +29,13 @@ models/checkpoints/
 *.pth
 *.pkl
 
-# --- テスト・開発用ファイル ---
-# テストスクリプトは残すが、テスト結果は除外
-test_results/
-*.test.log
-
-# クリーンアップレポートは開発用なので除外してもOK（必要に応じてコメントアウト）
-# CLEANUP_REPORT.md
-# test_cleanup.py
+# --- スクリプトが生成する出力画像・動画 ---
+# gif/ 以下の全ファイル
+gif/
+# view_all_spawns.py が生成するスポーンマップ
+spawn_map.png
+# enjoy_wide.py などが生成する動画・GIF
+*.mp4
 
 # --- エディタ・OS関連 ---
 .vscode/
@@ -45,3 +44,4 @@ Thumbs.db
 
 # --- Docker関連 ---
 # .devcontainer/ は共有する場合は除外しない
+scripts/spawn_preview.png
