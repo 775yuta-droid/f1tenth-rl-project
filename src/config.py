@@ -3,29 +3,38 @@ import os
 
 import multiprocessing
 
+from src.profiles import PROFILES
+
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
 DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
+# --- 学習環境プロファイル ---
+# 環境変数 TRAINING_PROFILE で使用する設定セットを切り替えます。
+#   laptop  : RTX 3050 Laptop 向け（TORCH_NUM_THREADS=2）
+#   desktop : RTX 5080 Desktop 向け（TORCH_NUM_THREADS=4）
+#   auto    : CPUコア数から自動判定（デフォルト）
+#
+# 例: TRAINING_PROFILE=laptop python3 scripts/train.py
+_profile_name = os.environ.get("TRAINING_PROFILE", "auto")
+_profile = PROFILES.get(_profile_name, PROFILES["auto"])
+
 # --- CPU スレッド最適化 ---
 # F1Tenthシミュレーターはシングルスレッド動作のため、
 # PyTorchのスレッドが多すぎるとオーバーヘッドで逆に遅くなる。
-#
-# 手動で指定したい場合: 環境変数 TORCH_NUM_THREADS を設定する。
-#   例: TORCH_NUM_THREADS=4 python3 scripts/train.py
-#
-# 未設定の場合は物理コア数から自動判定:
-#   ~12コア (Laptop)  : コア数をそのまま使用 (例: i5-11400H → 12スレッド)
-#   13コア以上 (Desktop): 高コア数はシミュでは逆効果のため上限4に制御
-#                          (例: Core Ultra 7 265 / 20コア → 4スレッド)
+# TRAINING_PROFILE で laptop/desktop を指定すると最適値が自動設定される。
+# 手動で上書きしたい場合: TORCH_NUM_THREADS=N python3 scripts/train.py
 _cpu_count = multiprocessing.cpu_count()
-_default_threads = _cpu_count if _cpu_count <= 12 else 4
-TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _default_threads))
+_profile_threads = _profile["torch_num_threads"]
+if _profile_threads is None:
+    # auto: CPUコア数から保守的に2スレッドに制限
+    _profile_threads = 2 if _cpu_count >= 2 else 1
+TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS =5000000
+TOTAL_TIMESTEPS = 6000000
 LEARNING_RATE = 1e-4
 
 # --- ネットワーク構造 ---
@@ -48,7 +57,7 @@ VEHICLE_STATE_MEAN = np.array([0.574, -0.010])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.096, 0.122])
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.005  # エントロピー係数（探索を促進、少なめ）
+PPO_ENT_COEF = 0.02  # エントロピー係数（探索を促進、局所解脱出のため高め）
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
@@ -56,8 +65,8 @@ MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -800.0   # 衝突時の大きなペナルティ（より厳しく）
-REWARD_SURVIVAL = 0.02      # 1ステップ生存するごとの基本報酬（少し抑える）
+REWARD_COLLISION = -100.0   # 衝突時のペナルティ（大きすぎると早期自殺するため緩和）
+REWARD_SURVIVAL = 0.1      # 1ステップ生存するごとの基本報酬（生存の価値を高める）
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
 REWARD_CENTRALITY_WEIGHT = 0.5 # コース中央を走ることへの報酬

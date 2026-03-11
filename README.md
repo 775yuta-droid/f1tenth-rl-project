@@ -169,7 +169,7 @@ python3 scripts/enjoy_wide.py --steps 1500 --save gif/output.mp4
 ```bash
 # ホスト側で実行
 tensorboard --logdir logs --bind_all
-# ブラウザで http://localh  ost:6006 を開く
+# ブラウザで http://localhost:6006 を開く
 ```
 
 ### スポーン位置の確認
@@ -302,7 +302,7 @@ Dockerコンテナ内で作成されたログやモデルファイルは `root` 
 
 **対処法：** 所有権を現在のユーザーに変更してください。
 ```bash
-sudo chown -R $USER:$USER /home/toyot/projects/f1tenth-rl-project
+sudo chown -R $USER:$USER /home/UserName/projects/f1tenth-rl-project
 ```
 
 ---

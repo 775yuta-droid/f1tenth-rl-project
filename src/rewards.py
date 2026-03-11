@@ -17,8 +17,8 @@ from src import config
 @dataclass
 class RewardConfig:
     """報酬計算に必要なハイパーパラメータをまとめた設定クラス。"""
-    reward_collision: float = -800.0
-    reward_survival: float = 0.02
+    reward_collision: float = -100.0
+    reward_survival: float = 0.1
     reward_front_weight: float = 3.0
     reward_speed_weight: float = 1.0
     reward_centrality_weight: float = 0.5
@@ -91,8 +91,8 @@ def calculate_reward(
 
     # 3. 壁接近ペナルティ（安全マージン）
     min_dist = np.min(scans)
-    if min_dist < 1.0:
-        reward -= cfg.reward_distance_weight * (1.0 - (min_dist / 1.0))
+    if min_dist < 0.5:
+        reward -= cfg.reward_distance_weight * (1.0 - (min_dist / 0.5))
 
     # 4. 中央維持報酬 (Lateral Centrality) - 真横(90度)付近の平均を使用
     left_dist = np.mean(scans[800:820])
