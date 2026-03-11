@@ -104,7 +104,7 @@ def view_spawn():
     ax.legend()
     
     # Save
-    save_path = "spawn_preview.png"
+    save_path = "spawn_preview_2.png"
     plt.savefig(save_path)
     print(f"Saved preview to: {save_path}")
     plt.close()

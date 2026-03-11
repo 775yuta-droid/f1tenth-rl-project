@@ -25,7 +25,7 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _default_threads))
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 3000000
+TOTAL_TIMESTEPS =5000000
 LEARNING_RATE = 1e-4
 
 # --- ネットワーク構造 ---
@@ -33,19 +33,19 @@ LEARNING_RATE = 1e-4
 NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
-LIDAR_DOWNSAMPLE_FACTOR = 2   # 1080 -> 540次元（残差処理のため高解像度を維持）
+LIDAR_DOWNSAMPLE_FACTOR = 10   # 1080 -> 540次元（残差処理のため高解像度を維持）
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = True # 前ステップとのLiDAR差分（ΔLiDAR）を観測に含める
 
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
 # Calibrated statistics based on 10000 random steps
-LIDAR_MEAN = 4.639
-LIDAR_STD = 3.119
-LIDAR_RESIDUAL_MEAN = -0.007
-LIDAR_RESIDUAL_STD = 0.072
-VEHICLE_STATE_MEAN = np.array([0.578, -0.004])  # [vel, steer]
-VEHICLE_STATE_STD = np.array([0.092, 0.120])
+LIDAR_MEAN = 4.869
+LIDAR_STD = 3.577
+LIDAR_RESIDUAL_MEAN = -0.008
+LIDAR_RESIDUAL_STD = 0.084
+VEHICLE_STATE_MEAN = np.array([0.574, -0.010])  # [vel, steer]
+VEHICLE_STATE_STD = np.array([0.096, 0.122])
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.005  # エントロピー係数（探索を促進、少なめ）
@@ -56,7 +56,7 @@ MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -2000.0   # 衝突時の大きなペナルティ（より厳しく）
+REWARD_COLLISION = -800.0   # 衝突時の大きなペナルティ（より厳しく）
 REWARD_SURVIVAL = 0.02      # 1ステップ生存するごとの基本報酬（少し抑える）
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
@@ -85,15 +85,15 @@ LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [3.0, 4.0, 0.0]
+START_POSE = [2.5, 4.0, 0.0]
 
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [3.0, 4.0,  0.0],
-  #  [3.0, 5.0,  0.5],
+    [1.5, 3.5,  0.5],
+   # [3.0, 5.0,  2.5],
     [3.0, 5.0,  2.5],
-    #[3.0, 4.0,  3.14],
+    [4.5, 4.4,  2.0],
     [0.7, 5.0, -1.0],
     #[5.0, 4.5, -2.5],
 ]

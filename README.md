@@ -169,7 +169,7 @@ python3 scripts/enjoy_wide.py --steps 1500 --save gif/output.mp4
 ```bash
 # ホスト側で実行
 tensorboard --logdir logs --bind_all
-# ブラウザで http://localhost:6006 を開く
+# ブラウザで http://localh  ost:6006 を開く
 ```
 
 ### スポーン位置の確認
@@ -296,9 +296,17 @@ print(f'Model expects: {model.observation_space.shape}')
 python3 scripts/evaluate.py --episodes 5 --model models/my_model
 ```
 
-結果の衝突率・平均報酬を確認し、TensorBoard のログと照合してください。
+### `EACCES: permission denied` (権限エラー)
+
+Dockerコンテナ内で作成されたログやモデルファイルは `root` ユーザーの所有となり、ホスト側（PC側）から削除や編集ができない場合があります。
+
+**対処法：** 所有権を現在のユーザーに変更してください。
+```bash
+sudo chown -R $USER:$USER /home/toyot/projects/f1tenth-rl-project
+```
 
 ---
+
 
 ## 📖 実装リファレンス
 

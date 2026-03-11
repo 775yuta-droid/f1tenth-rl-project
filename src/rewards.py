@@ -17,7 +17,7 @@ from src import config
 @dataclass
 class RewardConfig:
     """報酬計算に必要なハイパーパラメータをまとめた設定クラス。"""
-    reward_collision: float = -1000.0
+    reward_collision: float = -800.0
     reward_survival: float = 0.02
     reward_front_weight: float = 3.0
     reward_speed_weight: float = 1.0
