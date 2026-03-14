@@ -17,12 +17,12 @@ from src import config
 @dataclass
 class RewardConfig:
     """報酬計算に必要なハイパーパラメータをまとめた設定クラス。"""
-    reward_collision: float = -200.0
+    reward_collision: float = -1000.0
     reward_survival: float = 0.05
     reward_front_weight: float = 3.0
     reward_speed_weight: float = 1.0
-    reward_centrality_weight: float = 0.6
-    reward_distance_weight: float = 1.0
+    reward_safety_weight: float = 0.8  # 旧 centrality_weight + distance_weight を統合
+    reward_distance_weight: float = 1.0   # 互換性のため残存（safety_weight が主役）
     reward_progress_weight: float = 1.0
     max_speed: float = 2.5
 
@@ -34,7 +34,7 @@ def _load_default_config() -> RewardConfig:
         reward_survival=config.REWARD_SURVIVAL,
         reward_front_weight=config.REWARD_FRONT_WEIGHT,
         reward_speed_weight=config.REWARD_SPEED_WEIGHT,
-        reward_centrality_weight=config.REWARD_CENTRALITY_WEIGHT,
+        reward_safety_weight=config.REWARD_SAFETY_WEIGHT,
         reward_distance_weight=config.REWARD_DISTANCE_WEIGHT,
         reward_progress_weight=config.REWARD_PROGRESS_WEIGHT,
         max_speed=config.MAX_SPEED,
@@ -89,17 +89,13 @@ def calculate_reward(
         reward += speed_factor * cfg.reward_speed_weight
         progress_scale = 1.0
 
-    # 3. 壁接近ペナルティ（安全マージン）
-    min_dist = np.min(scans)
-    if min_dist < 0.5:
-        reward -= cfg.reward_distance_weight * (1.0 - (min_dist / 0.5))
-
-    # 4. 全周クリアランス報酬（カーブでの内側切り込みを抑制）
-    # 左右均等を目指すCentrality報酬はカーブで内側への切り込みを誘発するため廃止し、
-    # 全方向の最小距離が安全マージン(2m)以上であることを評価する方式に変更。
-    clearance = np.min(scans)
-    clearance_reward = np.clip(clearance / 2.0, 0.0, 1.0)
-    reward += clearance_reward * cfg.reward_centrality_weight
+    # 3+4. 安全距離スコア（壁ペナルティ＋クリアランス報酬を統合）
+    # 2m 以上: プラス報酬 (最大 +safety_weight*0.5)
+    # 0m:     マイナスペナルティ (最大 -safety_weight*0.5)
+    # 連続関数なので学習勾配が滑らか
+    wall_dist = np.min(scans)
+    safety_score = np.clip(wall_dist / 2.0, 0.0, 1.0)  # 0.0〜1.0
+    reward += (safety_score - 0.5) * cfg.reward_safety_weight
 
     # 5. 走行距離報酬（円形走行抑制）
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
