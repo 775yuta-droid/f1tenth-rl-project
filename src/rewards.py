@@ -17,13 +17,13 @@ from src import config
 @dataclass
 class RewardConfig:
     """報酬計算に必要なハイパーパラメータをまとめた設定クラス。"""
-    reward_collision: float = -100.0
-    reward_survival: float = 0.1
+    reward_collision: float = -200.0
+    reward_survival: float = 0.05
     reward_front_weight: float = 3.0
     reward_speed_weight: float = 1.0
-    reward_centrality_weight: float = 0.5
+    reward_centrality_weight: float = 0.6
     reward_distance_weight: float = 1.0
-    reward_progress_weight: float = 3.0
+    reward_progress_weight: float = 1.0
     max_speed: float = 2.5
 
 
@@ -73,8 +73,8 @@ def calculate_reward(
     if done:
         return cfg.reward_collision
 
-    # 1. 前方空間報酬（視野を±45度相当: 270～810番）
-    front_dist = np.min(scans[270:810])
+    # 1. 前方空間報酬（視野を±60度相当: 180～900番に拡大、斜め突進の抑制）
+    front_dist = np.min(scans[180:900])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
     # 2. 速度報酬 / コーナー前ペナルティ
@@ -94,11 +94,12 @@ def calculate_reward(
     if min_dist < 0.5:
         reward -= cfg.reward_distance_weight * (1.0 - (min_dist / 0.5))
 
-    # 4. 中央維持報酬 (Lateral Centrality) - 真横(90度)付近の平均を使用
-    left_dist = np.mean(scans[800:820])
-    right_dist = np.mean(scans[260:280])
-    centrality = 1.0 - abs(left_dist - right_dist) / (left_dist + right_dist + 1e-6)
-    reward += centrality * cfg.reward_centrality_weight
+    # 4. 全周クリアランス報酬（カーブでの内側切り込みを抑制）
+    # 左右均等を目指すCentrality報酬はカーブで内側への切り込みを誘発するため廃止し、
+    # 全方向の最小距離が安全マージン(2m)以上であることを評価する方式に変更。
+    clearance = np.min(scans)
+    clearance_reward = np.clip(clearance / 2.0, 0.0, 1.0)
+    reward += clearance_reward * cfg.reward_centrality_weight
 
     # 5. 走行距離報酬（円形走行抑制）
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)

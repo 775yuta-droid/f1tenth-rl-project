@@ -54,18 +54,19 @@ def test_front_distance_reward(base_config):
     
     assert reward_far > reward_near
 
-def test_centrality_reward(base_config):
-    """中央維持報酬の確認 (270付近と810付近)"""
-    # 中央にいる場合 (左右均等)
-    scan_center = np.full(1080, 5.0)
-    reward_center = calculate_reward(scan_center, [0.0, 1.0], False, 1.0, reward_config=base_config)
-    
-    # 左に寄っている場合 (左が近く、右が遠い)
-    scan_left = np.full(1080, 5.0)
-    scan_left[800:820] = 1.0  # 左側を近くする
-    reward_left = calculate_reward(scan_left, [0.0, 1.0], False, 1.0, reward_config=base_config)
-    
-    assert reward_center > reward_left
+def test_clearance_reward(base_config):
+    """全周クリアランス報酬の確認（Centrality報酬の置き換え）"""
+    # 壁から十分に離れている場合（全方向2m以上）
+    scan_clear = np.full(1080, 5.0)
+    reward_clear = calculate_reward(scan_clear, [0.0, 1.0], False, 1.0, reward_config=base_config)
+
+    # 壁に近い場合（最小距離が短い）
+    scan_wall = np.full(1080, 5.0)
+    scan_wall[0] = 0.5  # 一方向に近い壁がある
+    reward_wall = calculate_reward(scan_wall, [0.0, 1.0], False, 1.0, reward_config=base_config)
+
+    # 壁から十分遠い場合のほうがクリアランス報酬が高くなるはず
+    assert reward_clear > reward_wall
 
 def test_progress_scale_non_zero(base_config):
     """前方至近距離でも progress_scale が0にならないことを確認"""

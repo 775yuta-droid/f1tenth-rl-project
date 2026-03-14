@@ -12,8 +12,10 @@
 未設定の場合は auto プロファイルが適用されます（CPUコア数から自動判定）。
 """
 
+from typing import Dict
+
 # プロファイル別の TORCH_NUM_THREADS 設定
-PROFILES: dict[str, dict] = {
+PROFILES: Dict[str, dict] = {
     "laptop": {
         "torch_num_threads": 2,  # RTX 3050 Laptop: スレッド競合を避けて2に固定
     },
