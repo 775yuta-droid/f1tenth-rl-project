@@ -34,12 +34,12 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 8000000
+TOTAL_TIMESTEPS = 5000000
 LEARNING_RATE = 1e-4
 
 # --- ネットワーク構造 ---
-# 複雑な判断（加減速）をさせるため、少し深めの [128, 128] に設定
-NET_ARCH = [128, 128]
+# 複雑な判断（加減速）をさせるため、少し深めの [64, 64] に設定
+NET_ARCH = [64, 64]
 
 # --- 観測空間の工夫 ---
 LIDAR_DOWNSAMPLE_FACTOR = 10   # 1080 -> 540次元（残差処理のため高解像度を維持）
@@ -57,7 +57,7 @@ VEHICLE_STATE_MEAN = np.array([0.574, -0.010])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.096, 0.122])
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.03  # エントロピー係数（探索を促進、局所解脱出のため高め）
+PPO_ENT_COEF = 0.01  # エントロピー係数（収束優先・局所解は報酬設計で対処）
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
@@ -65,13 +65,13 @@ MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -200.0   # 衝突時のペナルティ（2000ステップ分の生存報酬に相当、衝突許容行動を防止）
-REWARD_SURVIVAL = 0.05      # 1ステップ生存するごとの基本報酬（ペナルティとのバランス調整）
+REWARD_COLLISION = -1000.0  # 衝突時のペナルティ（大きめに設定して衝突忌避を徹底）
+REWARD_SURVIVAL = 0.05      # 1ステップ生存するごとの基本報酬
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
-REWARD_CENTRALITY_WEIGHT = 0.6 # 全周クリアランス報酬（内側切り込み抑制）
-REWARD_DISTANCE_WEIGHT = 1.0   # 壁からの距離（安全マージン）への報酬
-REWARD_PROGRESS_WEIGHT = 1.0   # 走行距離報酬（無闁突進より安全なコーナリングを優先）
+REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（旧CENTRALITY+DISTANCEを統合）
+REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ（safety_weightと役割統合済み・互換用）
+REWARD_PROGRESS_WEIGHT = 1.0   # 走行距離報酬（前進を促す）
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。

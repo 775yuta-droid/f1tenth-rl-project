@@ -11,16 +11,16 @@ from src.rewards import calculate_reward, RewardConfig
 
 @pytest.fixture
 def base_config():
-    """標準的なテスト用設定"""
+    """標準的なテスト用設定 (config.py の実際の値に同期)"""
     return RewardConfig(
-        reward_collision=-2000.0,  # 衝突時の報酬
-        reward_survival=0.02,      # 生存報酬
-        reward_front_weight=3.0,   # 前方報酬の重み
-        reward_speed_weight=1.0,   # 速度報酬の重み
-        reward_centrality_weight=0.5,  # 中央維持報酬の重み
-        reward_distance_weight=1.0,  # 距離報酬の重み
-        reward_progress_weight=2.0,  # 進捗報酬の重み
-        max_speed=2.5  # 最大速度
+        reward_collision=-1000.0,   # config.REWARD_COLLISION
+        reward_survival=0.05,       # config.REWARD_SURVIVAL
+        reward_front_weight=3.0,    # config.REWARD_FRONT_WEIGHT
+        reward_speed_weight=1.0,    # config.REWARD_SPEED_WEIGHT
+        reward_safety_weight=0.8,   # config.REWARD_SAFETY_WEIGHT (旧 centrality+distance)
+        reward_distance_weight=1.0, # config.REWARD_DISTANCE_WEIGHT (互換用)
+        reward_progress_weight=1.0, # config.REWARD_PROGRESS_WEIGHT
+        max_speed=2.5               # config.MAX_SPEED
     )
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def test_speed_reward_logic(base_config, empty_scan):
     assert reward_high > reward_low
 
 def test_front_distance_reward(base_config):
-    """前方距離による報酬の変化を確認 (270-810の範囲)"""
+    """前方距離による報酬の変化を確認"""
     # 遠くに壁がある場合
     scan_far = np.full(1080, 20.0)
     reward_far = calculate_reward(scan_far, [0.0, 2.0], False, 2.0, reward_config=base_config)
@@ -54,19 +54,32 @@ def test_front_distance_reward(base_config):
     
     assert reward_far > reward_near
 
-def test_clearance_reward(base_config):
-    """全周クリアランス報酬の確認（Centrality報酬の置き換え）"""
-    # 壁から十分に離れている場合（全方向2m以上）
-    scan_clear = np.full(1080, 5.0)
+def test_safety_score_monotone(base_config):
+    """安全スコア曲線が壁距離に対して単調増加であることを確認 (旧 clearance_reward テスト)"""
+    # 壁から十分に離れている場合
+    scan_far = np.full(1080, 5.0)
+    reward_far = calculate_reward(scan_far, [0.0, 1.0], False, 1.0, reward_config=base_config)
+
+    # 壁に近い場合（最小距離が0.5m）
+    scan_near = np.full(1080, 5.0)
+    scan_near[0] = 0.5
+    reward_near = calculate_reward(scan_near, [0.0, 1.0], False, 1.0, reward_config=base_config)
+
+    # 壁から十分遠い場合のほうが安全スコア報酬が高くなるはず
+    assert reward_far > reward_near
+
+def test_safety_score_penalty_close(base_config):
+    """壁に0.5m以内まで近づいた時にペナルティが発生することを確認"""
+    # 全方向に余裕がある状態
+    scan_clear = np.full(1080, 2.0)  # safety_score = 1.0 → (+0.5) * weight
     reward_clear = calculate_reward(scan_clear, [0.0, 1.0], False, 1.0, reward_config=base_config)
 
-    # 壁に近い場合（最小距離が短い）
-    scan_wall = np.full(1080, 5.0)
-    scan_wall[0] = 0.5  # 一方向に近い壁がある
-    reward_wall = calculate_reward(scan_wall, [0.0, 1.0], False, 1.0, reward_config=base_config)
+    # 全方向が0.5m以下（最悪ケース）
+    scan_veryclose = np.full(1080, 0.1)  # safety_score ≈ 0.05 → (-0.45) * weight
+    reward_close = calculate_reward(scan_veryclose, [0.0, 1.0], False, 1.0, reward_config=base_config)
 
-    # 壁から十分遠い場合のほうがクリアランス報酬が高くなるはず
-    assert reward_clear > reward_wall
+    # 近い場合は報酬が低い（ペナルティ的）であることを確認
+    assert reward_clear > reward_close
 
 def test_progress_scale_non_zero(base_config):
     """前方至近距離でも progress_scale が0にならないことを確認"""

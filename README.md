@@ -168,7 +168,7 @@ python3 scripts/enjoy_wide.py --steps 1500 --save gif/output.mp4
 
 ```bash
 # ホスト側で実行
-tensorboard --logdir logs --bind_all
+tensorboard --logdir logs --host localhost
 # ブラウザで http://localhost:6006 を開く
 ```
 
