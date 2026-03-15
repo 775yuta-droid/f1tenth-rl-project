@@ -1,0 +1,53 @@
+# Query: tensorboard
+# ContextLines: 1
+
+11 件の結果 - 5 ファイル
+
+.gitignore:
+  15  # --- 学習データ・ログ（重いので除外） ---
+  16: # 学習ログ (Tensorboardなど)
+  17  /logs/*
+
+README.md:
+   44  │   ├── utils/
+   45: │   │   ├── read_logs.py       # TensorBoard ログ解析
+   46  │   │   └── read_tfevents.py   # TFEvents ファイル解析（依存なし）
+
+   53  ├── models/                    # 学習済みモデル（.gitignore対象）
+   54: ├── logs/                      # TensorBoard ログ・評価結果（.gitignore対象）
+   55  ├── gif/                       # 出力動画（.gitignore対象）
+
+  166  
+  167: ### TensorBoard でログ確認
+  168  
+
+  170  # ホスト側で実行
+  171: tensorboard --logdir logs --host localhost
+  172  # ブラウザで http://localhost:6006 を開く
+
+  332  
+  333: ### TensorBoard メトリクス
+  334  
+
+scripts/train.py:
+  63              device=config.DEVICE,
+  64:             tensorboard_log=config.LOG_DIR
+  65          )
+
+  74              verbose=1,
+  75:             tensorboard_log=config.LOG_DIR,
+  76              device=config.DEVICE
+
+  80      print(f"Total Timesteps: {args.steps}")
+  81:     print(f"TensorBoard ログ: {config.LOG_DIR}")
+  82      
+
+scripts/utils/read_logs.py:
+  2  import sys
+  3: from tensorboard.backend.event_processing import event_accumulator
+  4  import numpy as np
+
+src/config.py:
+  79  #   MODEL_DIR: モデルの保存先
+  80: #   LOG_DIR:   TensorBoard ログの保存先
+  81  #
