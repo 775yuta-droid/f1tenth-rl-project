@@ -148,7 +148,7 @@ NET_ARCH = [128, 128]  # ネットワーク幅を2倍に
 | EXP-02 | `ENT_COEF=0.003` | — | — | — | スキップ |
 | EXP-03 | `COLLISION=-200, SURVIVAL=0.1` | 30.0% | 20.2 | 0.416 | 🟡一部改善 |
 | EXP-04 | `NET_ARCH=[128,128]` | — | — | — | 待機 |
-| EXP-05 | `log_std_init=-1.0` + `COLLISION=-200` | — | — | — | 次回実施 |
+| EXP-05 | `log_std_init=-1.0` + `COLLISION=-200` | — | — | — | **実行中** |
 
 ---
 
