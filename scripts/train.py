@@ -70,10 +70,7 @@ def main():
             env,
             learning_rate=config.LEARNING_RATE,
             ent_coef=config.PPO_ENT_COEF,
-            policy_kwargs=dict(
-                net_arch=config.NET_ARCH,
-                log_std_init=-1.0,
-            ),
+            policy_kwargs=dict(net_arch=config.NET_ARCH),
             verbose=1,
             tensorboard_log=config.LOG_DIR,
             device=config.DEVICE

@@ -65,8 +65,8 @@ MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -1000.0  # 衝突時のペナルティ（大きめに設定して衝突忌避を徹底）
-REWARD_SURVIVAL = 0.05      # 1ステップ生存するごとの基本報酬
+REWARD_COLLISION = -200.0  # ペナルティを緩和
+REWARD_SURVIVAL  = 0.1     # 生存報酬を少し増やして補完
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
 REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（旧CENTRALITY+DISTANCEを統合）
