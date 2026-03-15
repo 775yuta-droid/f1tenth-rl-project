@@ -15,7 +15,7 @@ from src import config
 from src.f1_env import F1TenthRL
 
 class MapRenderer:
-    def __init__(self, map_path, fig_size=8):
+    def __init__(self, map_path, car_params={'length': 0.58, 'width': 0.31}, fig_size=8):
         # マップメタデータの読み込み
         map_yaml_path = map_path + ".yaml"
         with open(map_yaml_path, 'r') as f:
@@ -48,6 +48,13 @@ class MapRenderer:
         self.car_dot, = self.ax.plot([], [], 'o', color='#ff0055', markersize=8, markeredgecolor='white', zorder=5)
         self.car_arrow = None # 後で作成
         
+        # 車両の外形（ポリゴン）
+        self.car_len = car_params['length']
+        self.car_width = car_params['width']
+        self.car_polygon = plt.Polygon([(0,0), (0,0), (0,0), (0,0)], closed=True, 
+                                      fill=True, color='#ff0055', alpha=0.6, zorder=4)
+        self.ax.add_patch(self.car_polygon)
+        
         self.hud_text = self.ax.text(20, 40, '', color='#00ff00', fontsize=12, fontfamily='monospace',
                                     bbox=dict(facecolor='black', alpha=0.7, edgecolor='none'))
         
@@ -71,6 +78,31 @@ class MapRenderer:
 
         # 自車の位置
         self.car_dot.set_data([px], [py])
+
+        # 車両の外形（ポリゴン）の更新
+        # 車両中心からのオフセット（ピクセル単位）を計算
+        l_px = self.car_len / self.resolution
+        w_px = self.car_width / self.resolution
+        # 頂点計算
+        cos_t = np.cos(car_theta)
+        sin_t = np.sin(car_theta)
+        # 4隅の相対座標
+        corners = np.array([
+            [l_px/2, w_px/2],   # 前左
+            [l_px/2, -w_px/2],  # 前右
+            [-l_px/2, -w_px/2], # 後右
+            [-l_px/2, w_px/2]   # 後左
+        ])
+        # 回転 (画像座標系なのでy軸反転が必要)
+        rotated_corners = []
+        for cx, cy in corners:
+            # 物理座標系での回転
+            rx = cx * cos_t - cy * sin_t
+            ry = cx * sin_t + cy * cos_t
+            # 画像座標系への反映 (px, py は既に中心のピクセル位置)
+            rotated_corners.append([px + rx, py - ry]) # py - ry は画像座標(上0)のため
+        
+        self.car_polygon.set_xy(rotated_corners)
 
         # 向きの矢印
         if self.car_arrow:
@@ -144,7 +176,8 @@ def main():
         return
 
     # 描画クラスの初期化
-    renderer = MapRenderer(config.MAP_PATH)
+    car_params = {'length': env.env.params['length'], 'width': env.env.params['width']}
+    renderer = MapRenderer(config.MAP_PATH, car_params=car_params)
 
     obs = env.reset()
     frames = []
