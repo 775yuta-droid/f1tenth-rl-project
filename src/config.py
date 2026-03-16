@@ -44,7 +44,7 @@ NET_ARCH = [64, 64]
 # --- 観測空間の工夫 ---
 LIDAR_DOWNSAMPLE_FACTOR = 10   # 1080 -> 540次元（残差処理のため高解像度を維持）
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
-INCLUDE_LIDAR_RESIDUAL = True # 前ステップとのLiDAR差分（ΔLiDAR）を観測に含める
+INCLUDE_LIDAR_RESIDUAL = False # 前ステップとのLiDAR差分（ΔLiDAR）を観測から外す（検証用）
 
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
