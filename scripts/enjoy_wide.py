@@ -15,7 +15,7 @@ from src import config
 from src.f1_env import F1TenthRL
 
 class MapRenderer:
-    def __init__(self, map_path, car_params={'length': 0.58, 'width': 0.31}, fig_size=8):
+    def __init__(self, map_path, car_params={'length': 0.465, 'width': 0.19}, fig_size=8):
         # マップメタデータの読み込み
         map_yaml_path = map_path + ".yaml"
         with open(map_yaml_path, 'r') as f:

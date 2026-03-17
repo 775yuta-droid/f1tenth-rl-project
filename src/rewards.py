@@ -97,6 +97,15 @@ def calculate_reward(
     safety_score = np.clip(wall_dist / 2.0, 0.0, 1.0)  # 0.0〜1.0
     reward += (safety_score - 0.5) * cfg.reward_safety_weight
 
+    # EXP-09: 左右非対称ペナルティ（インベタコーナリング抑制）
+    # LiDAR前半: 右側(0〜539), 後半: 左側(540〜1079) ※F1Tenth Gymの配列方向
+    left_min  = np.min(scans[540:])
+    right_min = np.min(scans[:540])
+    # 左右の壁距離の差が大きいほど「片側に偏っている」 → ペナルティ
+    # 係数0.15は safety_weight の約1/5: 強すぎず、方向性のみ与える
+    symmetry_penalty = -abs(left_min - right_min) * 0.15
+    reward += symmetry_penalty
+
     # 5. 走行距離報酬（円形走行抑制）
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale

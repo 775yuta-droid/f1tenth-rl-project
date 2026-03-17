@@ -31,6 +31,10 @@ class F1TenthRL(gym.Env):
         super(F1TenthRL, self).__init__()
         self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1)
         
+        # マシン寸法の適用
+        self.env.params['length'] = config.CAR_LENGTH
+        self.env.params['width'] = config.CAR_WIDTH
+        
         # 観測空間の計算
         # 1. LiDAR: 1080 -> ダウンサンプリング
         self.lidar_size = 1080 // config.LIDAR_DOWNSAMPLE_FACTOR

@@ -38,13 +38,13 @@ TOTAL_TIMESTEPS = 5000000
 LEARNING_RATE = 1e-4
 
 # --- ネットワーク構造 ---
-# 複雑な判断（加減速）をさせるため、少し深めの [64, 64] に設定
-NET_ARCH = [64, 64]
+# 複雑な判断（加減速）をさせるため、階層を拡大 [64, 64] -> [128, 128] (EXP-07)
+NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
 LIDAR_DOWNSAMPLE_FACTOR = 10   # 1080 -> 540次元（残差処理のため高解像度を維持）
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
-INCLUDE_LIDAR_RESIDUAL = False # 前ステップとのLiDAR差分（ΔLiDAR）を観測から外す（検証用）
+INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-06〜) - Trueにするなら単独実験で検証すること
 
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
@@ -64,12 +64,16 @@ STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
 MIN_SPEED = 1.0            # 最低速度（これより遅くならない）
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
+# --- マシン寸法 ---
+CAR_LENGTH = 0.465
+CAR_WIDTH = 0.19
+
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0  # ペナルティを緩和
 REWARD_SURVIVAL  = 0.1     # 生存報酬を少し増やして補完
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
-REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（旧CENTRALITY+DISTANCEを統合）
+REWARD_SAFETY_WEIGHT = 1.0  # 壁との安全距離スコア報酬（左右ペナルティで内壁対策 EXP-09）
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ（safety_weightと役割統合済み・互換用）
 REWARD_PROGRESS_WEIGHT = 1.0   # 走行距離報酬（前進を促す）
 

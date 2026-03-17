@@ -40,6 +40,9 @@
 | EXP-03 | `COLLISION=-200, SURVIVAL=0.1` | **30%** | **20.2** | 0.41 | 🟡 **完走成功**。ただし行動は異常なパニック。 |
 | **EXP-05** | **EXP-01 + EXP-03 (Hybrid)** | 0% | 14.8 | 0.05 | ✗ 生存時間は伸びたが完走できず。 |
 | **EXP-06** | `INCLUDE_LIDAR_RESIDUAL=False` | 0% | 0.93 | 0.31 | ✗ 完走できず。ただし行動発散(`std` < 1.0)は大幅に改善。 |
+| **EXP-07** | `NET_ARCH=[128, 128]` | **25%**| 1.24 | 0.35 | 🟡 **完走成功(25%)**。`std` は微増したが、表現力向上により初のゴール到達。 |
+| **EXP-08** | `SAFETY_WEIGHT=1.5` | 0% | 0.95 | 0.48 | ✗ **完走できず(0%)**。`std` は安定したが、安全マージン強化が逆に衝突を招いた可能性。 |
+| **EXP-09** | `左右ペナルティ+SAFETY=1.0` | — | — | — | **実施中**: 内壁衝突対策。rewards.pyに左右非対称ペナルティを追加。 |
 
 ---
 
@@ -70,7 +73,7 @@
 ## 5. 実行コマンド集 (Cheat Sheet)
 ```bash
 # 学習 (モデル名は ID に合わせる)
-docker compose exec f1-sim-latest python3 scripts/train.py --steps 4000000 --model /workspace/models/ppo_exp05
+docker compose exec f1-sim-latest TRAINING_PROFILE=auto python3 scripts/train.py --steps 4000000 --model /workspace/models/ppo_exp05
 
 # 評価
 docker compose exec f1-sim-latest python3 scripts/evaluate.py --model ppo_exp05 --episodes 20

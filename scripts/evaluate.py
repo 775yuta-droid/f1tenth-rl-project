@@ -30,6 +30,10 @@ def main():
     target_model = args.model if args.model else config.MODEL_PATH
     if not target_model.endswith('.zip'):
         target_model += '.zip'
+    
+    # ファイル名のみ指定された場合は MODEL_DIR を付与
+    if os.path.dirname(target_model) == '':
+        target_model = os.path.join(config.MODEL_DIR, target_model)
 
     if os.path.exists(target_model):
         try:
