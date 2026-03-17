@@ -42,7 +42,8 @@
 | **EXP-06** | `INCLUDE_LIDAR_RESIDUAL=False` | 0% | 0.93 | 0.31 | ✗ 完走できず。ただし行動発散(`std` < 1.0)は大幅に改善。 |
 | **EXP-07** | `NET_ARCH=[128, 128]` | **25%**| 1.24 | 0.35 | 🟡 **完走成功(25%)**。`std` は微増したが、表現力向上により初のゴール到達。 |
 | **EXP-08** | `SAFETY_WEIGHT=1.5` | 0% | 0.95 | 0.48 | ✗ **完走できず(0%)**。`std` は安定したが、安全マージン強化が逆に衝突を招いた可能性。 |
-| **EXP-09** | `左右ペナルティ+SAFETY=1.0` | — | — | — | **実施中**: 内壁衝突対策。rewards.pyに左右非対称ペナルティを追加。 |
+| **EXP-09** | `左右ペナルティ+SAFETY=1.0` | 0% | 1.2 | 0.58 | ✗ **完走できず(0%)**。`exp_var` は向上したが、左右ペナルティが走行を妨げた可能性。 |
+| **EXP-10** | `CenterBonus+ProgWeight=2.0` | — | — | — | **実施中**: 攻めの姿勢で完走を目指す。中央ボーナスと進捗報酬を強化。 |
 
 ---
 
@@ -50,7 +51,8 @@
 
 1. **1実験 = 1実行**: `python3 scripts/train.py` を実行する。
 2. **評価の一貫性**: 実行後は必ず `python3 scripts/evaluate.py --episodes 20` を実行し、CSV/JSONログを生成すること。
-3. **継続の判断**: 改善が見られたら、次の実験（EXP-xx）には進まず、その設定値をベースとしてさらに微調整を行うこと。
+3. **シミュレーション可視化**: `python3 scripts/enjoy_wide.py` を動かして走行動画（mp4）を生成し、数値データ（完走率・報酬）だけでなく、挙動を視覚的に分析して考察に含めること。
+4. **継続の判断**: 改善が見られたら、次の実験（EXP-xx）には進まず、その設定値をベースとしてさらに微調整を行うこと。
 
 ---
 
@@ -77,6 +79,9 @@ docker compose exec f1-sim-latest TRAINING_PROFILE=auto python3 scripts/train.py
 
 # 評価
 docker compose exec f1-sim-latest python3 scripts/evaluate.py --model ppo_exp05 --episodes 20
+
+# 可視化 (動画生成)
+docker compose exec f1-sim-latest python3 scripts/enjoy_wide.py --model ppo_exp05 --save /workspace/gif/ppo_exp05.mp4
 
 # リアルタイム監視
 tensorboard --logdir logs --host localhost

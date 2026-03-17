@@ -73,9 +73,9 @@ REWARD_COLLISION = -200.0  # ペナルティを緩和
 REWARD_SURVIVAL  = 0.1     # 生存報酬を少し増やして補完
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.0   # 速度に対する報酬の重み
-REWARD_SAFETY_WEIGHT = 1.0  # 壁との安全距離スコア報酬（左右ペナルティで内壁対策 EXP-09）
+REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（EXP-10で0.8に戻し、中央ボーナスを主軸に）
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ（safety_weightと役割統合済み・互換用）
-REWARD_PROGRESS_WEIGHT = 1.0   # 走行距離報酬（前進を促す）
+REWARD_PROGRESS_WEIGHT = 2.0   # 走行距離報酬（EXP-10で1.0→2.0へ倍増、完走を最優先）
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。
