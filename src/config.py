@@ -35,7 +35,7 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
 TOTAL_TIMESTEPS = 5000000
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 5e-5  # EXP-11: 高速域での微調整のため慎重な学習率に変更 (1e-4 -> 5e-5)
 
 # --- ネットワーク構造 ---
 # 複雑な判断（加減速）をさせるため、階層を拡大 [64, 64] -> [128, 128] (EXP-07)

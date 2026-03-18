@@ -80,27 +80,35 @@ class MapRenderer:
         self.car_dot.set_data([px], [py])
 
         # 車両の外形（ポリゴン）の更新
-        # 車両中心からのオフセット（ピクセル単位）を計算
+        # シミュレーターの基準点 (px, py) は後輪軸の中心。
+        # 車両の中心 (CG付近) はそこから前方（theta方向）にシフトしている。
+        # 0.465m長、0.33mホイールベース、対称オーバーハングの場合、オフセットは約 0.165m
+        offset_dist = 0.165 
+        off_x = (offset_dist / self.resolution) * np.cos(car_theta)
+        off_y = -(offset_dist / self.resolution) * np.sin(car_theta) # y軸反転
+        
+        center_px = px + off_x
+        center_py = py + off_y
+
         l_px = self.car_len / self.resolution
         w_px = self.car_width / self.resolution
+        
         # 頂点計算
         cos_t = np.cos(car_theta)
         sin_t = np.sin(car_theta)
-        # 4隅の相対座標
+        # 4隅の相対座標 (車両中心基準)
         corners = np.array([
             [l_px/2, w_px/2],   # 前左
             [l_px/2, -w_px/2],  # 前右
             [-l_px/2, -w_px/2], # 後右
             [-l_px/2, w_px/2]   # 後左
         ])
-        # 回転 (画像座標系なのでy軸反転が必要)
+        # 回転
         rotated_corners = []
         for cx, cy in corners:
-            # 物理座標系での回転
             rx = cx * cos_t - cy * sin_t
             ry = cx * sin_t + cy * cos_t
-            # 画像座標系への反映 (px, py は既に中心のピクセル位置)
-            rotated_corners.append([px + rx, py - ry]) # py - ry は画像座標(上0)のため
+            rotated_corners.append([center_px + rx, center_py - ry])
         
         self.car_polygon.set_xy(rotated_corners)
 
@@ -175,8 +183,8 @@ def main():
         print(f"エラー: モデルファイルが見つかりません: {target_model}")
         return
 
-    # 描画クラスの初期化
-    car_params = {'length': env.env.params['length'], 'width': env.env.params['width']}
+    # 描画クラスの初期化 (ユーザー希望の 0.465 x 0.19 を強制)
+    car_params = {'length': 0.465, 'width': 0.19}
     renderer = MapRenderer(config.MAP_PATH, car_params=car_params)
 
     obs = env.reset()

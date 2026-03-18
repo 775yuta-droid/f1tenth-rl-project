@@ -108,6 +108,13 @@ def calculate_reward(
     center_bonus = (1.0 - center_ratio) * 0.3
     reward += center_bonus
 
+    # EXP-11: 指数関数的な壁ペナルティ (Boundary Penalty)
+    # 0.6m以内に近づいた場合のみ、急激にマイナスを増やす
+    if wall_dist < 0.6:
+        # e^(3.0 * 0.6) = e^1.8 ≒ 6.05。距離0で最大約 -6.0 の強烈な拒絶
+        proximity_penalty = -np.exp(3.0 * (0.6 - wall_dist))
+        reward += proximity_penalty
+
     # 5. 走行距離報酬（円形走行抑制）
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale
