@@ -77,12 +77,13 @@ def calculate_reward(
     front_dist = np.min(scans[180:900])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 速度報酬 / コーナー前ペナルティ
+    # 2. 速度報酬 / コーナー前補正 (EXP-13: 早期減速・ブレーキ強化)
     speed_factor = current_speed / cfg.max_speed
-    if front_dist < 2.0:
-        reward -= speed_factor * cfg.reward_speed_weight * 1.0
-        progress_scale = 0.1  # 完全に停止しないよう下限を設定
-    elif front_dist < 4.0:
+    if front_dist < 3.5: # 2.0 -> 3.5m (より手前からブレーキ)
+        # 強烈な速度ペナルティ (1.0 -> 3.0) で「速すぎ」を抑制
+        reward -= speed_factor * cfg.reward_speed_weight * 3.0
+        progress_scale = 0.1
+    elif front_dist < 6.0: # 4.0 -> 6.0m (より手前から準備)
         reward += speed_factor * cfg.reward_speed_weight * 0.1
         progress_scale = 0.3
     else:
