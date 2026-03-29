@@ -61,7 +61,7 @@ PPO_ENT_COEF = 0.01  # エントロピー係数（収束優先・局所解は報
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0   # ステアリングの反応速度
-MIN_SPEED = 0.3            # EXP-13: コーナーでのブレーキを許可するため 1.0 -> 0.3 へ引き下げ
+MIN_SPEED = 0.4            # EXP-17: 0.3 -> 0.4 (ステアリング応答性向上のため下限引き上げ)
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
 # --- マシン寸法 ---
@@ -72,7 +72,7 @@ CAR_WIDTH = 0.19
 REWARD_COLLISION = -200.0  # ペナルティを緩和
 REWARD_SURVIVAL  = 0.1     # 生存報酬を少し増やして補完
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
-REWARD_SPEED_WEIGHT = 1.0   # EXP-16: EXP-13の完全再現 (1.2 -> 1.0)
+REWARD_SPEED_WEIGHT = 1.2   # EXP-17: 1.0 -> 1.2 (速度へのインセンティブ微増)
 REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（EXP-10で0.8に戻し、中央ボーナスを主軸に）
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ（safety_weightと役割統合済み・互換用）
 REWARD_PROGRESS_WEIGHT = 2.0   # 走行距離報酬 (EXP-15: 安定を求めて2.0へ戻す)

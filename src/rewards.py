@@ -105,9 +105,17 @@ def calculate_reward(
     total_width = left_min + right_min
     # センター度合い（0.0=真ん中, 1.0=どちらかの壁）
     center_ratio = abs(left_min - right_min) / (total_width + 1e-6)
-    # 左右バランスが良いほどボーナスを与える（最大+0.3）
-    center_bonus = (1.0 - center_ratio) * 0.3
+    # 左右バランスが良いほどボーナスを与える（最大+0.5: EXP-17で強化）
+    center_bonus = (1.0 - center_ratio) * 0.5
     reward += center_bonus
+
+    # 7. EXP-17: ステアリング方向ボーナス
+    # 空いている方向（距離が長い方）にハンドルを切っている場合にボーナス
+    # action[0]: -1.0 (right) to 1.0 (left)
+    if left_min > right_min and action[0] > 0.1:   # 左が空いてて左に切る
+        reward += 0.2 * action[0]
+    elif right_min > left_min and action[0] < -0.1: # 右が空いてて右に切る
+        reward += 0.2 * abs(action[0])
 
     # EXP-11: 指数関数的な壁ペナルティ (Boundary Penalty)
     # 0.6m以内に近づいた場合のみ、急激にマイナスを増やす
@@ -120,7 +128,7 @@ def calculate_reward(
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale
 
-    # 6. ステアリング安定性（条件付き）
+    # 8. ステアリング安定性（条件付き）
     if front_dist > 5.0:
         reward += (1.0 - abs(action[0])) * 0.2
     reward += cfg.reward_survival

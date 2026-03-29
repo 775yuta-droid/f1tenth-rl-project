@@ -1,4 +1,5 @@
-#!/bin/bash
+
+f#!/bin/bash
 
 # EXP-16 "EXP-13 Complete Reproduction"
 # 目的: EXP-13 (70%完走) の設定を完全に再現し、再現性があるかを検証する
