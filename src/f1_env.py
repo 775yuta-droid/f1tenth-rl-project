@@ -129,6 +129,12 @@ class F1TenthRL(gym.Env):
         else:
             pose = config.START_POSE
         sx, sy, syaw = pose
+        
+        # EXP-19: スタート位置にノイズを付加 (丸暗記防止)
+        sx += np.random.uniform(-0.1, 0.1)
+        sy += np.random.uniform(-0.1, 0.1)
+        syaw += np.random.uniform(-0.05, 0.05)
+        
         initial_poses = np.array([[sx, sy, syaw]])
 
         result = self.env.reset(poses=initial_poses)
