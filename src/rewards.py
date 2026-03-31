@@ -132,6 +132,11 @@ def calculate_reward(
     # 6. ステアリング安定性（条件付き）
     if front_dist > 5.0:
         reward += (1.0 - abs(action[0])) * 0.2
+    
+    # 7. ステアリング変化ペナルティ (EXP-20: 蛇行抑制)
+    # 急激なハンドルの変化（delta）に対してペナルティ
+    reward -= abs(action[0]) * 0.05
+    
     reward += cfg.reward_survival
 
     return reward

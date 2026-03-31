@@ -2,7 +2,7 @@ import gym
 import f110_gym
 import numpy as np
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 from stable_baselines3.common.callbacks import CheckpointCallback
 import os
 import sys
@@ -52,6 +52,8 @@ def main():
 
     env = F1TenthRL(config.MAP_PATH)
     env = DummyVecEnv([lambda: env])
+    # EXP-21: フレーム積層の適用
+    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
 
     if args.resume:
         # --- 継続学習: 既存モデルをロードして学習を再開 ---

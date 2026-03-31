@@ -59,6 +59,9 @@ class F1TenthRL(gym.Env):
         self.prev_x = 0.0
         self.prev_y = 0.0
         
+        # 現在のステアリング角 (EXP-20: Delta制御用)
+        self.current_steer = 0.0
+        
         # アクション空間: [ステアリング, 速度] の2次元
         self.action_space = gym.spaces.Box(
             low=np.array([-1.0, -1.0]), 
@@ -79,9 +82,9 @@ class F1TenthRL(gym.Env):
         """
         生の観測データを加工して返す
         """
-        # LiDARデータのダウンサンプリング (平均または最小値を取る)
+        # LiDARデータのダウンサンプリング (EXP-21: min -> mean へ変更し平滑化)
         scans = raw_obs['scans'][0]
-        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
+        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).mean(axis=1)
         
         # ΔLiDAR（残差）の計算
         delta_lidar = downsampled - self.prev_lidar
@@ -142,11 +145,12 @@ class F1TenthRL(gym.Env):
 
         # 初期状態のLiDARを取得してprev_lidarをセット
         scans = raw_obs['scans'][0]
-        self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
+        self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).mean(axis=1)
 
         # 前位置をリセット
         self.prev_x = sx
         self.prev_y = sy
+        self.current_steer = 0.0 # ステア角をリセット
 
         return self._get_obs(raw_obs)
 
@@ -154,7 +158,13 @@ class F1TenthRL(gym.Env):
         """
         1ステップ実行
         """
-        steer = action[0] * config.STEER_SENSITIVITY
+        # action[0] を「全角度指定」から「変化量指定」に変更 (EXP-20)
+        steer_delta = action[0] * config.STEER_DELTA_LIMIT
+        self.current_steer = np.clip(self.current_steer + steer_delta, 
+                                     -config.STEER_SENSITIVITY, 
+                                     config.STEER_SENSITIVITY)
+        
+        steer = self.current_steer
         speed = config.MIN_SPEED + (action[1] + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         
         obs, _, done, info = self.env.step(np.array([[steer, speed]]))

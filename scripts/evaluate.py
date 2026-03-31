@@ -13,6 +13,7 @@ import datetime
 from stable_baselines3 import PPO
 from src import config
 from src.f1_env import F1TenthRL
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 
 
 def main():
@@ -24,6 +25,9 @@ def main():
 
     # 環境の初期化
     env = F1TenthRL(config.MAP_PATH)
+    env = DummyVecEnv([lambda: env])
+    # EXP_21: フレーム積層の適用
+    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
     print(f"現在の観測空間の形状: {env.observation_space.shape}")
 
     # モデルの読み込み
@@ -69,18 +73,27 @@ def main():
         ep_steps = 0
         speeds = []
 
-        while not done and ep_steps < args.max_steps:
+        while ep_steps < args.max_steps:
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, info = env.step(action)
+            obs, rewards, dones, infos = env.step(action)
+            
+            # VecEnv (VecFrameStack) の戻り値は常に要素1のリスト
+            reward = rewards[0]
+            done   = dones[0]
+            info   = infos[0]
 
             try:
-                speed = env.env.sim.agents[0].state[3]
+                # env は VecFrameStack(DummyVecEnv) なので env.envs[0] にアクセス
+                speed = env.envs[0].env.sim.agents[0].state[3]
                 speeds.append(speed)
             except:
                 pass
 
             ep_reward += reward
             ep_steps += 1
+            
+            if done:
+                break
 
         results["steps"].append(ep_steps)
         results["rewards"].append(ep_reward)

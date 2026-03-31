@@ -42,7 +42,8 @@ LEARNING_RATE = 5e-5  # EXP-11: 高速域での微調整のため慎重な学習
 NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
-LIDAR_DOWNSAMPLE_FACTOR = 4    # EXP-18: 10 -> 4 (108点 -> 270点へ高解像度化)
+LIDAR_DOWNSAMPLE_FACTOR = 10   # EXP-21: 108点に原点回帰 (積層による時間解像度向上を目指す)
+FRAME_STACK = 4                # EXP-21: 直近4フレームを重ねる
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
 
@@ -60,6 +61,7 @@ VEHICLE_STATE_STD = np.array([0.096, 0.122])
 PPO_ENT_COEF = 0.01  # エントロピー係数（収束優先・局所解は報酬設計で対処）
 
 # --- 物理設定（マシン性能） ---
+STEER_DELTA_LIMIT = 0.08   # EXP-21: 0.05 -> 0.08 (少し緩和して転舵速度を確保)
 STEER_SENSITIVITY = 0.41   # EXP-18: 1.0 -> 0.41 (シミュレータの物理限界 rad に一致させる)
 MIN_SPEED = 0.3            # EXP-18: 安定設定へ戻す
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
