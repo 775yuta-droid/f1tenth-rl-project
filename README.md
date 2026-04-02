@@ -205,6 +205,30 @@ MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/berlin'
 > ```
 > 出力された値を `config.py` の `LIDAR_MEAN` 等に反映してください。
 
+---
+
+## 🏎️ 実機デプロイ (Jetson) へのステップ
+
+学習したモデルを実機で動かすための手順です。詳細は [jetson-ros2-project](file:///home/yuta775/projects/jetson-ros2-project) を参照してください。
+
+### 1. ONNX 形式への変換
+実機での推論速度を向上させるため、PyTorch (`.zip`) モデルを ONNX (`.onnx`) 形式に変換します。
+```bash
+python3 scripts/export/convert_ppo_to_onnx.py --model models/ppo_f1_my_map_steps10000000
+```
+※ 同名の `.onnx` ファイルが生成されます。
+
+### 2. 正規化パラメータの取得
+実機側の `params.yaml` に設定するための統計量を確認します。
+```bash
+# config.py の内容を表示して確認
+cat src/config.py | grep -A 5 "LIDAR_MEAN"
+```
+
+### 3. 実機への送付
+生成された `.onnx` ファイルを Jetson の `models/` ディレクトリへコピーしてください。
+実機側で `scripts/calibration.py` を実行し、`src/config.py` の値を入力することで準備完了です。
+
 ### 環境変数でのパス変更
 
 `config.py` のパス設定は環境変数で上書き可能です。Docker 起動時や CI 環境で便利です：
@@ -360,7 +384,7 @@ actual_speed    = MIN_SPEED + (throttle + 1.0) * (MAX_SPEED - MIN_SPEED) / 2.0
 ## 📝 バージョン情報
 
 - **作成**: 2026-02-24
-- **最終更新**: 2026-03-10
+- **最終更新**: 2026-04-03
 - **バージョン**: 1.3.0
 - **対応 Python**: 3.10+
 
