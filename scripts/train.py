@@ -2,7 +2,7 @@ import gym
 import f110_gym
 import numpy as np
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 import os
 import sys
@@ -50,9 +50,15 @@ def main():
         name_prefix=os.path.basename(args.model)
     )
 
-    env = F1TenthRL(config.MAP_PATH)
-    env = DummyVecEnv([lambda: env])
-    # EXP-21: フレーム積層の適用
+    # --- 環境の初期化 (EXP-22: SubprocVecEnvによる8環境並列化) ---
+    # SubprocVecEnvではラムダのクロージャが内包される問題を避けるためファクトリ関数を使用
+    def make_env(rank):
+        def _init():
+            return F1TenthRL(config.MAP_PATH)
+        return _init
+
+    env = SubprocVecEnv([make_env(i) for i in range(config.N_ENVS)])
+    # EXP-21: フレーム積層の適用 (SubprocVecEnvの上にラップ)
     env = VecFrameStack(env, n_stack=config.FRAME_STACK)
 
     if args.resume:

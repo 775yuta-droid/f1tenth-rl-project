@@ -42,8 +42,9 @@ LEARNING_RATE = 5e-5  # EXP-11: 高速域での微調整のため慎重な学習
 NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
-LIDAR_DOWNSAMPLE_FACTOR = 10   # EXP-21: 108点に原点回帰 (積層による時間解像度向上を目指す)
+LIDAR_DOWNSAMPLE_FACTOR = 10   # EXP-21: 108点に原点回帰
 FRAME_STACK = 4                # EXP-21: 直近4フレームを重ねる
+N_ENVS = 8                     # EXP-22: 8環境並列化 (SubprocVecEnv)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
 
@@ -61,8 +62,7 @@ VEHICLE_STATE_STD = np.array([0.096, 0.122])
 PPO_ENT_COEF = 0.01  # エントロピー係数（収束優先・局所解は報酬設計で対処）
 
 # --- 物理設定（マシン性能） ---
-STEER_DELTA_LIMIT = 0.08   # EXP-21: 0.05 -> 0.08 (少し緩和して転舵速度を確保)
-STEER_SENSITIVITY = 0.41   # EXP-18: 1.0 -> 0.41 (シミュレータの物理限界 rad に一致させる)
+STEER_SENSITIVITY = 1.0    # EXP-22: 0.41 -> 1.0 に復帰 (EXP-13/16の成功設定。緊急回避の転舵能力を回復)
 MIN_SPEED = 0.3            # EXP-18: 安定設定へ戻す
 MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
 
@@ -72,9 +72,9 @@ CAR_WIDTH = 0.19
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0  # ペナルティを緩和
-REWARD_SURVIVAL  = 0.1     # 生存報酬を少し増やして補完
+REWARD_SURVIVAL  = 0.2     # EXP-25: 0.1 -> 0.2 (累積報酬のプラス転換を目指す)
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
-REWARD_SPEED_WEIGHT = 1.1   # EXP-19: 1.0 -> 1.1 (安定と速度のバランス)
+REWARD_SPEED_WEIGHT = 1.0   # EXP-22: 1.1 -> 1.0 (EXP-16の安定設定に戻す)
 REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（EXP-10で0.8に戻し、中央ボーナスを主軸に）
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ（safety_weightと役割統合済み・互換用）
 REWARD_PROGRESS_WEIGHT = 2.0   # 走行距離報酬 (EXP-15: 安定を求めて2.0へ戻す)
@@ -108,8 +108,8 @@ START_POSES = [
     [1.5, 3.5,  0.5],
    # [3.0, 5.0,  2.5],
     [3.0, 5.0,  2.5],
-    [4.5, 4.4,  2.0],
-    [0.7, 5.0, -1.0],
+    # [4.5, 4.4,  2.0],  # EXP-25: さらに除外 (残りの衝突20%の主因)
+    # [0.7, 5.0, -1.0],  # EXP-24: 除外
     #[5.0, 4.5, -2.5],
 ]
 

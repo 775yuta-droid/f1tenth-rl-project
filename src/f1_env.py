@@ -82,9 +82,9 @@ class F1TenthRL(gym.Env):
         """
         生の観測データを加工して返す
         """
-        # LiDARデータのダウンサンプリング (EXP-21: min -> mean へ変更し平滑化)
+        # LiDARデータのダウンサンプリング (EXP-23: mean -> min に復帰。積層も維持)
         scans = raw_obs['scans'][0]
-        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).mean(axis=1)
+        downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
         
         # ΔLiDAR（残差）の計算
         delta_lidar = downsampled - self.prev_lidar
@@ -145,7 +145,7 @@ class F1TenthRL(gym.Env):
 
         # 初期状態のLiDARを取得してprev_lidarをセット
         scans = raw_obs['scans'][0]
-        self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).mean(axis=1)
+        self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
 
         # 前位置をリセット
         self.prev_x = sx
@@ -158,13 +158,8 @@ class F1TenthRL(gym.Env):
         """
         1ステップ実行
         """
-        # action[0] を「全角度指定」から「変化量指定」に変更 (EXP-20)
-        steer_delta = action[0] * config.STEER_DELTA_LIMIT
-        self.current_steer = np.clip(self.current_steer + steer_delta, 
-                                     -config.STEER_SENSITIVITY, 
-                                     config.STEER_SENSITIVITY)
-        
-        steer = self.current_steer
+        # EXP-22: Delta制御を廃止し元の絶対角指定に復帰 (EXP-13/16の成功設定)
+        steer = action[0] * config.STEER_SENSITIVITY
         speed = config.MIN_SPEED + (action[1] + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         
         obs, _, done, info = self.env.step(np.array([[steer, speed]]))
