@@ -77,13 +77,13 @@ def calculate_reward(
     front_dist = np.min(scans[180:900])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 速度報酬 / コーナー前補正 (EXP-13: 早期減速・ブレーキ強化)
+    # 2. 速度報酬 / コーナー前補正 (EXP-25: 3.5m -> 2.0m へ緩和し攻めの走りを実現)
     speed_factor = current_speed / cfg.max_speed
-    if front_dist < 3.5: # 2.0 -> 3.5m (より手前からブレーキ)
-        # 強烈な速度ペナルティ (1.0 -> 3.0) で「速すぎ」を抑制
-        reward -= speed_factor * cfg.reward_speed_weight * 3.0
+    if front_dist < 2.0: # 3.5m -> 2.0m (より近くまで減速を待つ)
+        # 速度ペナルティを 3.0 -> 2.0 に緩和 (EXP-25)
+        reward -= speed_factor * cfg.reward_speed_weight * 2.0
         progress_scale = 0.1
-    elif front_dist < 6.0: # 4.0 -> 6.0m (より手前から準備)
+    elif front_dist < 4.0: # 6.0 -> 4.0m (不必要な減速区間を短縮)
         reward += speed_factor * cfg.reward_speed_weight * 0.1
         progress_scale = 0.3
     else:
@@ -112,7 +112,6 @@ def calculate_reward(
     # EXP-11: 指数関数的な壁ペナルティ (Boundary Penalty)
     # 0.6m以内に近づいた場合のみ、急激にマイナスを増やす
     if wall_dist < 0.6:
-        # e^(3.0 * 0.6) = e^1.8 ≒ 6.05。距離0で最大約 -6.0 の強烈な拒絶
         proximity_penalty = -np.exp(3.0 * (0.6 - wall_dist))
         reward += proximity_penalty
 
@@ -123,6 +122,7 @@ def calculate_reward(
     # 6. ステアリング安定性（条件付き）
     if front_dist > 5.0:
         reward += (1.0 - abs(action[0])) * 0.2
+
     reward += cfg.reward_survival
 
     return reward

@@ -59,6 +59,9 @@ class F1TenthRL(gym.Env):
         self.prev_x = 0.0
         self.prev_y = 0.0
         
+        # 現在のステアリング角 (EXP-20: Delta制御用)
+        self.current_steer = 0.0
+        
         # アクション空間: [ステアリング, 速度] の2次元
         self.action_space = gym.spaces.Box(
             low=np.array([-1.0, -1.0]), 
@@ -79,7 +82,7 @@ class F1TenthRL(gym.Env):
         """
         生の観測データを加工して返す
         """
-        # LiDARデータのダウンサンプリング (平均または最小値を取る)
+        # LiDARデータのダウンサンプリング (EXP-23: mean -> min に復帰。積層も維持)
         scans = raw_obs['scans'][0]
         downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
         
@@ -129,6 +132,12 @@ class F1TenthRL(gym.Env):
         else:
             pose = config.START_POSE
         sx, sy, syaw = pose
+        
+        # EXP-19: スタート位置にノイズを付加 (丸暗記防止)
+        sx += np.random.uniform(-0.1, 0.1)
+        sy += np.random.uniform(-0.1, 0.1)
+        syaw += np.random.uniform(-0.05, 0.05)
+        
         initial_poses = np.array([[sx, sy, syaw]])
 
         result = self.env.reset(poses=initial_poses)
@@ -141,6 +150,7 @@ class F1TenthRL(gym.Env):
         # 前位置をリセット
         self.prev_x = sx
         self.prev_y = sy
+        self.current_steer = 0.0 # ステア角をリセット
 
         return self._get_obs(raw_obs)
 
@@ -148,6 +158,7 @@ class F1TenthRL(gym.Env):
         """
         1ステップ実行
         """
+        # EXP-22: Delta制御を廃止し元の絶対角指定に復帰 (EXP-13/16の成功設定)
         steer = action[0] * config.STEER_SENSITIVITY
         speed = config.MIN_SPEED + (action[1] + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         

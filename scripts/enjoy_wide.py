@@ -13,6 +13,7 @@ import imageio
 import argparse
 from src import config
 from src.f1_env import F1TenthRL
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 
 class MapRenderer:
     def __init__(self, map_path, car_params={'length': 0.465, 'width': 0.19}, fig_size=8):
@@ -163,7 +164,10 @@ def main():
         os.makedirs(save_dir, exist_ok=True)
 
     # 環境の初期化
-    env = F1TenthRL(config.MAP_PATH)
+    env_single = F1TenthRL(config.MAP_PATH)
+    env = DummyVecEnv([lambda: env_single])
+    # EXP_21: フレーム積層の適用
+    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
     
     # モデルの読み込み (ディレクトリ指定がない場合は config.MODEL_DIR を指定)
     if args.model:
@@ -197,13 +201,20 @@ def main():
     try:
         for i in range(args.steps):
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, info = env.step(action)
+            obs, rewards, dones, infos = env.step(action)
+            
+            # VecEnv (VecFrameStack) の戻り値は常に要素1のリスト
+            reward = rewards[0]
+            done   = dones[0]
+            info   = infos[0]
+            
             raw_scan = info.get('raw_scan', np.zeros(1080))
             total_reward += reward
 
             # 車両状態の取得
             try:
-                state = env.env.sim.agents[0].state
+                # VecEnv なので env.envs[0] で元のインスタンスにアクセス
+                state = env_single.env.sim.agents[0].state
                 # state[0]: x, state[1]: y, state[4]: yaw (psi), state[3]: velocity
                 # state[2] はステアリング角なので、向きには state[4] を使うのが正しい
                 car_state = (state[0], state[1], state[4], state[3]) 
@@ -212,7 +223,8 @@ def main():
 
             # 描画更新 (2ステップに1回)
             if i % 2 == 0 and not args.no_render:
-                frame = renderer.update(car_state, raw_scan, action, reward, i, collisions)
+                # action[0] (現在のエージェントの操作) を渡す
+                frame = renderer.update(car_state, raw_scan, action[0], reward, i, collisions)
                 frames.append(frame)
                 
                 if (i // 2) % 50 == 0:
