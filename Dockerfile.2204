@@ -36,7 +36,9 @@ RUN pip3 install --no-cache-dir \
     imageio \
     imageio-ffmpeg \
     matplotlib \
-    scipy
+    scipy \
+    onnx \
+    onnxruntime
 
 # 7. f1tenth_gym のインストールと Gym 0.23.1 のねじ込み
 RUN git clone https://github.com/f1tenth/f1tenth_gym.git /opt/f1tenth_gym

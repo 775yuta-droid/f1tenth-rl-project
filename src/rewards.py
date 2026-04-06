@@ -85,7 +85,7 @@ def calculate_reward(
         progress_scale = 0.1
     elif front_dist < 4.0: # 6.0 -> 4.0m (不必要な減速区間を短縮)
         reward += speed_factor * cfg.reward_speed_weight * 0.1
-        progress_scale = 0.3
+        progress_scale = 0.5  # EXP-26: 0.3 -> 0.5 (中距離でも進捗を評価し、速度維持を促す)
     else:
         reward += speed_factor * cfg.reward_speed_weight
         progress_scale = 1.0

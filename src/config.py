@@ -63,8 +63,8 @@ PPO_ENT_COEF = 0.01  # エントロピー係数（収束優先・局所解は報
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0    # EXP-22: 0.41 -> 1.0 に復帰 (EXP-13/16の成功設定。緊急回避の転舵能力を回復)
-MIN_SPEED = 0.3            # EXP-18: 安定設定へ戻す
-MAX_SPEED = 2.5            # 最高速度（3.0→コーナーで安全な速度に下げ）
+MIN_SPEED = 1.0            # EXP-26: 0.3 -> 1.0 (低速走行による安全策を封じ、高速域の学習を促す)
+MAX_SPEED = 4.0            # EXP-26: 2.5 -> 4.0 (最高速度を大幅に引き上げ)
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -74,10 +74,10 @@ CAR_WIDTH = 0.19
 REWARD_COLLISION = -200.0  # ペナルティを緩和
 REWARD_SURVIVAL  = 0.2     # EXP-25: 0.1 -> 0.2 (累積報酬のプラス転換を目指す)
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
-REWARD_SPEED_WEIGHT = 1.0   # EXP-22: 1.1 -> 1.0 (EXP-16の安定設定に戻す)
-REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬（EXP-10で0.8に戻し、中央ボーナスを主軸に）
-REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ（safety_weightと役割統合済み・互換用）
-REWARD_PROGRESS_WEIGHT = 2.0   # 走行距離報酬 (EXP-15: 安定を求めて2.0へ戻す)
+REWARD_SPEED_WEIGHT = 2.0   # EXP-26: 1.0 -> 2.0 (速度報酬の重みを2倍に)
+REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬
+REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
+REWARD_PROGRESS_WEIGHT = 4.0   # EXP-26: 2.0 -> 4.0 (走行距離報酬の重みを2倍にし、高速走破を奨励)
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。

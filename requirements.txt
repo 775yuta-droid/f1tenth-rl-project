@@ -20,3 +20,5 @@ matplotlib
 # numpy<=1.22.0 is preferred for f110_gym but compatible versions can vary
 numpy
 torch
+onnx
+onnxruntime

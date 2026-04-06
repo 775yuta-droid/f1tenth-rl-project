@@ -27,7 +27,9 @@ RUN pip3 install --no-cache-dir \
     pyyaml \
     imageio \
     imageio-ffmpeg \
-    matplotlib
+    matplotlib \
+    onnx \
+    onnxruntime
 
 # f1tenth_gym のインストール
 # /opt/f1tenth_gym にクローンして編集可能モードでインストール
