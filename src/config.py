@@ -59,7 +59,7 @@ VEHICLE_STATE_MEAN = np.array([0.574, -0.010])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.096, 0.122])
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.01  # エントロピー係数（収束優先・局所解は報酬設計で対処）
+PPO_ENT_COEF = 0.05  # EXP-27: 0.01 -> 0.05 (Resume時の探索の再強化)
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0    # EXP-22: 0.41 -> 1.0 に復帰 (EXP-13/16の成功設定。緊急回避の転舵能力を回復)

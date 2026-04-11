@@ -69,7 +69,11 @@ def main():
             resume_path,
             env=env,
             device=config.DEVICE,
-            tensorboard_log=config.LOG_DIR
+            tensorboard_log=config.LOG_DIR,
+            custom_objects={
+                "ent_coef": config.PPO_ENT_COEF,
+                "learning_rate": config.LEARNING_RATE
+            }
         )
     else:
         # --- 新規学習 ---
