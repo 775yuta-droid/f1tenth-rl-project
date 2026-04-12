@@ -77,10 +77,12 @@ def calculate_reward(
     front_dist = np.min(scans[180:900])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 速度報酬 / コーナー前補正 (EXP-25: 3.5m -> 2.0m へ緩和し攻めの走りを実現)
+    # 2. 速度報酬 / コーナー前補正 (EXP-29: EXP-28のステア連動ペナルティを削除)
+    # 【EXP-28の反省】 steer_intensity に応じたペナルティは
+    # 「大舵角 = 不利」という誤学習を引き起こし、直進→壁衝突を招いた。
+    # EXP-29ではシンプルな一定倍率のペナルティに戻す。
     speed_factor = current_speed / cfg.max_speed
-    if front_dist < 2.0: # 3.5m -> 2.0m (より近くまで減速を待つ)
-        # 速度ペナルティを 3.0 -> 2.0 に緩和 (EXP-25)
+    if front_dist < 2.0: # 壁が近い: 速度にペナルティ（一定倍率）
         reward -= speed_factor * cfg.reward_speed_weight * 2.0
         progress_scale = 0.1
     elif front_dist < 4.0: # 6.0 -> 4.0m (不必要な減速区間を短縮)

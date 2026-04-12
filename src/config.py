@@ -42,8 +42,8 @@ LEARNING_RATE = 5e-5  # EXP-11: 高速域での微調整のため慎重な学習
 NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
-LIDAR_DOWNSAMPLE_FACTOR = 10   # EXP-21: 108点に原点回帰
-FRAME_STACK = 4                # EXP-21: 直近4フレームを重ねる
+LIDAR_DOWNSAMPLE_FACTOR = 5    # EXP-28: 216点に倍増 (視力強化) → EXP-29も維持
+FRAME_STACK = 2                # EXP-28: 2フレームに削減 (遅延削減) → EXP-29も維持
 N_ENVS = 8                     # EXP-22: 8環境並列化 (SubprocVecEnv)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
@@ -59,11 +59,11 @@ VEHICLE_STATE_MEAN = np.array([0.574, -0.010])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.096, 0.122])
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.05  # EXP-27: 0.01 -> 0.05 (Resume時の探索の再強化)
+PPO_ENT_COEF = 0.03  # EXP-29: EXP-28から継続
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0    # EXP-22: 0.41 -> 1.0 に復帰 (EXP-13/16の成功設定。緊急回避の転舵能力を回復)
-MIN_SPEED = 1.0            # EXP-26: 0.3 -> 1.0 (低速走行による安全策を封じ、高速域の学習を促す)
+MIN_SPEED = 0.5            # EXP-29: 1.0 -> 0.5 (コーナーで物理的に曲がれる速度域を回復。完全停車による局所解を防ぐため0.3には戻さない)
 MAX_SPEED = 4.0            # EXP-26: 2.5 -> 4.0 (最高速度を大幅に引き上げ)
 
 # --- マシン寸法 ---
