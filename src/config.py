@@ -51,12 +51,12 @@ INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノ�
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
 # Calibrated statistics based on 10000 random steps
-LIDAR_MEAN = 4.869
-LIDAR_STD = 3.577
-LIDAR_RESIDUAL_MEAN = -0.008
-LIDAR_RESIDUAL_STD = 0.084
-VEHICLE_STATE_MEAN = np.array([0.574, -0.010])  # [vel, steer]
-VEHICLE_STATE_STD = np.array([0.096, 0.122])
+LIDAR_MEAN = 4.700
+LIDAR_STD = 3.266
+LIDAR_RESIDUAL_MEAN = nan
+LIDAR_RESIDUAL_STD = nan
+VEHICLE_STATE_MEAN = np.array([0.441, -0.018])  # [vel, steer]
+VEHICLE_STATE_STD = np.array([0.098, 0.120])
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.03  # EXP-29: EXP-28から継続
@@ -94,7 +94,7 @@ REWARD_PROGRESS_WEIGHT = 4.0   # EXP-26: 2.0 -> 4.0 (走行距離報酬の重み
 #   my_map        -- 独自の倉庫マップ（デフォルト）
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/my_map")
+MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/testmap-0416")
 MODEL_DIR = os.environ.get("MODEL_DIR", "/workspace/models")
 LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
