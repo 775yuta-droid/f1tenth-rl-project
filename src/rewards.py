@@ -11,7 +11,7 @@ calculate_reward() が唯一のエントリーポイントです。
 """
 from dataclasses import dataclass, field
 import numpy as np
-from src import config
+from . import config
 
 
 @dataclass
@@ -73,57 +73,75 @@ def calculate_reward(
     if done:
         return cfg.reward_collision
 
-    # 1. 前方空間報酬（視野を±60度相当: 180～900番に拡大、斜め突進の抑制）
-    front_dist = np.min(scans[180:900])
+    # ================================================================
+    # EXP-32: Hokuyo URG 270° マスキング (Sim-to-Real ギャップ解消)
+    # 実機のHokuyo LiDARは後方90°が不可視。後方のインデックスを除外する。
+    # 1080点(360°) → 810点(270°): 後方 135点ずつを除外
+    #   Index: 0=右後方(-135°), 405=正前方(0°), 810=左後方(+135°)
+    # ================================================================
+    _H_START, _H_END = 135, 945
+    s = scans[_H_START:_H_END]  # 810点: -135°〜+135°
+
+    # 1. 前方空間報酬 (±60° = 810点の中心405±180点)
+    front_dist = np.min(s[225:585])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 速度報酬 / コーナー前補正 (EXP-31調整)
-    speed_factor = current_speed / cfg.max_speed
-    if front_dist < 2.0: # 壁が近い: 強い減速ペナルティ
-        reward -= speed_factor * cfg.reward_speed_weight * 2.5
-        progress_scale = 0.1
-    elif front_dist < 4.5: # 中距離: 緩やかに速度を維持/抑制
-        reward += speed_factor * cfg.reward_speed_weight * 0.2
-        progress_scale = 0.6
-    elif front_dist < 7.0: # 遠距離が見える: スピードを奨励
-        reward += speed_factor * cfg.reward_speed_weight * 0.8
-        progress_scale = 1.0
-    else: # 直線: 最大評価
-        reward += speed_factor * cfg.reward_speed_weight
-        progress_scale = 1.2
+    # 2. 側面壁距離を個別に取得 (狭い直線・カーブ対策の核心)
+    #    270°の場合: 右90° ≒ index 135付近, 左90° ≒ index 675付近
+    right_side = np.min(s[90:270])    # 右方向 (-90°±45°帯)
+    left_side  = np.min(s[540:720])   # 左方向 (+90°±45°帯)
+    side_min   = min(right_side, left_side)
 
-    # 3+4. 安全距離スコア（壁ペナルティ＋クリアランス報酬を統合）
-    # 2m 以上: プラス報酬 (最大 +safety_weight*0.5)
-    # 0m:     マイナスペナルティ (最大 -safety_weight*0.5)
-    # 連続関数なので学習勾配が滑らか
-    wall_dist = np.min(scans)
-    safety_score = np.clip(wall_dist / 2.0, 0.0, 1.0)  # 0.0〜1.0
+    # 3. 速度報酬 / コーナー前補正 (EXP-32: 4段階評価)
+    speed_factor = current_speed / cfg.max_speed
+    if front_dist < 2.0:           # 壁が目前: 強制ブレーキ
+        reward -= speed_factor * cfg.reward_speed_weight * 3.0
+        progress_scale = 0.05
+    elif front_dist < 4.0:         # コーナー手前: 早めに減速開始
+        reward += speed_factor * cfg.reward_speed_weight * 0.05
+        progress_scale = 0.4
+    elif front_dist < 7.0:         # 中間距離: 慎重に加速
+        reward += speed_factor * cfg.reward_speed_weight * 0.6
+        progress_scale = 0.8
+    else:                          # 直線: 加速推奨
+        reward += speed_factor * cfg.reward_speed_weight
+        progress_scale = 1.0
+
+    # 4. 安全距離スコア（全方位・連続関数で滑らかな勾配）
+    wall_dist = np.min(s)
+    safety_score = np.clip(wall_dist / 2.0, 0.0, 1.0)
     reward += (safety_score - 0.5) * cfg.reward_safety_weight
 
-    # EXP-10: センターライン報酬（左右非対称ペナルティの高度化）
-    # LiDAR前方右側(0〜539), 後半左側(540〜1079)
-    left_min  = np.min(scans[540:])
-    right_min = np.min(scans[:540])
-    total_width = left_min + right_min
-    # センター度合い（0.0=真ん中, 1.0=どちらかの壁）
-    center_ratio = abs(left_min - right_min) / (total_width + 1e-6)
-    # 左右バランスが良いほどボーナスを与える（最大+0.3）
-    center_bonus = (1.0 - center_ratio) * 0.3
-    reward += center_bonus
+    # 5. センターライン維持【EXP-32 最優先: 二乗ペナルティ化】
+    # 狭い直線でもドリフトは即死のため、中心を外すほど急激にマイナス
+    total_width  = left_side + right_side
+    center_ratio = abs(left_side - right_side) / (total_width + 1e-6)  # 0=中央, 1=壁
+    center_penalty = -(center_ratio ** 2) * 3.0  # 二乗: わずかなズレも強く罰する
+    reward += center_penalty
 
-    # EXP-11: 指数関数的な壁ペナルティ (Boundary Penalty)
-    # 0.6m以内に近づいた場合のみ、急激にマイナスを増やす
-    if wall_dist < 0.6:
-        proximity_penalty = -np.exp(3.0 * (0.6 - wall_dist))
-        reward += proximity_penalty
+    # 6. 側面壁への超近距離ペナルティ【狭い直線対策: デッドライン0.35m】
+    # マシン横幅0.19m + 安全マージン ≈ 0.35mを死線とする
+    if side_min < 0.35:
+        reward += -np.exp(6.0 * (0.35 - side_min))   # 係数3→6に増強
 
-    # 5. 走行距離報酬（円形走行抑制）
+    # 7.「狭いカーブ」複合ペナルティ【EXP-32 核心: 前方詰まり × 側面接近の同時発生】
+    # 最も危険な状況（前が閉じていて左右も余裕がない）に重ペナルティ
+    in_narrow_curve = (front_dist < 4.5) and (side_min < 0.7)
+    if in_narrow_curve:
+        reward -= speed_factor * 4.0          # スピードを出しているほど強いペナルティ
+        reward += (1.0 - abs(action[0])) * 0.8  # じわっとしたステアを強く評価
+
+    # 8. 全方位近接ペナルティ (デッドライン 0.6→0.35m に厳格化)
+    if wall_dist < 0.35:
+        reward += -np.exp(4.0 * (0.35 - wall_dist))
+
+    # 9. 走行距離報酬（進行を促進、円形走行抑制）
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale
 
-    # 6. ステアリング安定性（無駄なふらつきを抑制）
-    if front_dist > 3.0: # 5.0 -> 3.0m (中速域でも安定性を求める)
-        reward += (1.0 - abs(action[0])) * 0.3   # 0.2 -> 0.3 (直進性を強化)
+    # 10. ステアリング安定性（中速域でも適用: front_dist > 3m で有効）
+    if front_dist > 3.0:
+        reward += (1.0 - abs(action[0])) * 0.4   # 係数 0.3→0.4
 
     reward += cfg.reward_survival
 

@@ -11,8 +11,8 @@ import numpy as np
 import sys
 import os
 
-from src import config
-from src.rewards import calculate_reward
+from . import config
+from .rewards import calculate_reward
 
 
 class F1TenthRL(gym.Env):

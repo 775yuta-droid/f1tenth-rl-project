@@ -3,7 +3,7 @@ import os
 
 import multiprocessing
 
-from src.profiles import PROFILES
+from .profiles import PROFILES
 
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
@@ -35,7 +35,7 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
 TOTAL_TIMESTEPS = 10000000
-LEARNING_RATE = 5e-5  # EXP-11: 高速域での微調整のため慎重な学習率に変更 (1e-4 -> 5e-5)
+LEARNING_RATE = 2e-5  # EXP-32: 5e-5 -> 2e-5 (EXP-25の「曲がる知識」を壊さないよう極小小の学習率)
 
 # --- ネットワーク構造 ---
 # 複雑な判断（加減速）をさせるため、階層を拡大 [64, 64] -> [128, 128] (EXP-07)
@@ -59,12 +59,12 @@ VEHICLE_STATE_MEAN = np.array([0.441, -0.018])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.098, 0.120])
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.03  # EXP-30: EXP-25から継続
+PPO_ENT_COEF = 0.01  # EXP-32: 0.03 -> 0.01 (Resume時の探索を抜い、EXP-25の知識を活かす)
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0    # EXP-22: 0.41 -> 1.0 に復帰 (EXP-13/16の成功設定。緊急回避の転舵能力を回復)
-MIN_SPEED = 0.5            # EXP-30: EXP-25(0.3) -> 0.5 (完全停車による安全策を封じ、最低限の適度な速度を保持)
-MAX_SPEED = 3.0            # EXP-30: EXP-25(2.5) -> 3.0 (段階的な速度引き上げ。EXP-26の4.0は大きすぎた)
+MIN_SPEED = 0.3            # EXP-32: 0.5 -> 0.3 (EXP-13のブレイクスルー設定に戻す。極狭コーナーで自力で減速できる予地を確保)
+MAX_SPEED = 2.0            # EXP-32: 3.0 -> 2.0 (完走最優先。道幅が狭いためスピードよりもライン取りが重要)
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -72,7 +72,7 @@ CAR_WIDTH = 0.19
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0  # ペナルティを緩和
-REWARD_SURVIVAL  = 0.2     # EXP-25: 0.1 -> 0.2 (累積報酬のプラス転換を目指す)
+REWARD_SURVIVAL  = 0.5     # EXP-32: 0.2 -> 0.5 (極狭コースでは「生き残る」こと自体を最大のインセンティブに)
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 2.0   # EXP-26: 1.0 -> 2.0 (速度報酬の重みを2倍に)
 REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬
@@ -121,4 +121,4 @@ GIF_DIR    = os.path.join(PROJECT_ROOT, "gif")
 GIF_PATH   = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMESTEPS}_arch{len(NET_ARCH)}.gif")
 
 # 報酬計算ロジックは src/rewards.py に移動しました。
-# from src.rewards import calculate_reward
+# from .rewards import calculate_reward
