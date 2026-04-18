@@ -18,13 +18,13 @@ from src import config
 class RewardConfig:
     """報酬計算に必要なハイパーパラメータをまとめた設定クラス。"""
     reward_collision: float = -1000.0
-    reward_survival: float = 0.05
+    reward_survival: float = 0.2       # EXP-25: 0.05 -> 0.2 (安定完走の鍵)
     reward_front_weight: float = 3.0
     reward_speed_weight: float = 1.0
     reward_safety_weight: float = 0.8  # 旧 centrality_weight + distance_weight を統合
-    reward_distance_weight: float = 1.0   # 互換性のため残存（safety_weight が主役）
+    reward_distance_weight: float = 1.0   # 互換性のため残存
     reward_progress_weight: float = 1.0
-    max_speed: float = 2.5
+    max_speed: float = 3.0             # EXP-30/31設定に合わせる
 
 
 def _load_default_config() -> RewardConfig:
@@ -77,20 +77,20 @@ def calculate_reward(
     front_dist = np.min(scans[180:900])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 速度報酬 / コーナー前補正 (EXP-29: EXP-28のステア連動ペナルティを削除)
-    # 【EXP-28の反省】 steer_intensity に応じたペナルティは
-    # 「大舵角 = 不利」という誤学習を引き起こし、直進→壁衝突を招いた。
-    # EXP-29ではシンプルな一定倍率のペナルティに戻す。
+    # 2. 速度報酬 / コーナー前補正 (EXP-31調整)
     speed_factor = current_speed / cfg.max_speed
-    if front_dist < 2.0: # 壁が近い: 速度にペナルティ（一定倍率）
-        reward -= speed_factor * cfg.reward_speed_weight * 2.0
+    if front_dist < 2.0: # 壁が近い: 強い減速ペナルティ
+        reward -= speed_factor * cfg.reward_speed_weight * 2.5
         progress_scale = 0.1
-    elif front_dist < 4.0: # 6.0 -> 4.0m (不必要な減速区間を短縮)
-        reward += speed_factor * cfg.reward_speed_weight * 0.1
-        progress_scale = 0.5  # EXP-26: 0.3 -> 0.5 (中距離でも進捗を評価し、速度維持を促す)
-    else:
-        reward += speed_factor * cfg.reward_speed_weight
+    elif front_dist < 4.5: # 中距離: 緩やかに速度を維持/抑制
+        reward += speed_factor * cfg.reward_speed_weight * 0.2
+        progress_scale = 0.6
+    elif front_dist < 7.0: # 遠距離が見える: スピードを奨励
+        reward += speed_factor * cfg.reward_speed_weight * 0.8
         progress_scale = 1.0
+    else: # 直線: 最大評価
+        reward += speed_factor * cfg.reward_speed_weight
+        progress_scale = 1.2
 
     # 3+4. 安全距離スコア（壁ペナルティ＋クリアランス報酬を統合）
     # 2m 以上: プラス報酬 (最大 +safety_weight*0.5)
@@ -121,9 +121,9 @@ def calculate_reward(
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale
 
-    # 6. ステアリング安定性（条件付き）
-    if front_dist > 5.0:
-        reward += (1.0 - abs(action[0])) * 0.2
+    # 6. ステアリング安定性（無駄なふらつきを抑制）
+    if front_dist > 3.0: # 5.0 -> 3.0m (中速域でも安定性を求める)
+        reward += (1.0 - abs(action[0])) * 0.3   # 0.2 -> 0.3 (直進性を強化)
 
     reward += cfg.reward_survival
 

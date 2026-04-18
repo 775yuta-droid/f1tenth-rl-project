@@ -53,8 +53,8 @@ NORMALIZE_OBSERVATIONS = True
 # Calibrated statistics based on 10000 random steps
 LIDAR_MEAN = 4.700
 LIDAR_STD = 3.266
-LIDAR_RESIDUAL_MEAN = nan
-LIDAR_RESIDUAL_STD = nan
+LIDAR_RESIDUAL_MEAN = np.nan
+LIDAR_RESIDUAL_STD = np.nan
 VEHICLE_STATE_MEAN = np.array([0.441, -0.018])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.098, 0.120])
 
@@ -100,14 +100,14 @@ LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [2.5, 4.0, 0.0]
+START_POSE = [1.5, 1.0, 0.0]
 
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [1.5, 3.5,  0.5],
+    [1.5, 1.0,  0.9],
    # [3.0, 5.0,  2.5],
-    [3.0, 5.0,  2.5],
+    [1.0, 2.5,  3.7],
     # [4.5, 4.4,  2.0],  # EXP-25: さらに除外 (残りの衝突20%の主因)
     # [0.7, 5.0, -1.0],  # EXP-24: 除外
     #[5.0, 4.5, -2.5],
