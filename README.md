@@ -1,397 +1,88 @@
 # 🏎️ F1Tenth AI Racing Project
 **Deep Reinforcement Learning × LiDAR-based Autonomous Racing**
 
-F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに自律走行するAI（PPO）を開発するプロジェクトです。
+F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速かつ安定した自律走行を実現するAI（PPO）を開発するプロジェクトです。
 
 ---
 
 ## 📋 プロジェクト概要
 
-### 🎯 主要な特徴
+本プロジェクトでは、段階的な実験（EXP-01〜EXP-30）を通じて、F1Tenth車両の限界性能を引き出す学習を進めています。
 
-- **LiDARダウンサンプリング**: 1080点 → 540点に圧縮。ノイズを抑制し学習を高速化
-- **車両状態統合**: 速度・ステアリング角を観測に含め、マシンの慣性を考慮
-- **残差処理**: 前ステップとの差分を観測に含め、動的な環境変化に対応
-
----
-
-## 🛠️ 技術スタック
-
-| 項目 | 採用技術 |
-|------|---------|
-| 環境 | [F1Tenth Gym](https://github.com/f1tenth/f1tenth_gym) |
-| アルゴリズム | PPO (Stable Baselines3) |
-| 実行環境 | Docker |
-| 言語 | Python 3.9+ |
+### 🎯 技術的アプローチ
+- **LiDARダウンサンプリング**: 1080点 → 108点/216点に圧縮。計算負荷を抑えつつエッジを保持。
+- **フレーム積層 (Frame Stacking)**: 複数フレームを重ねることで、時間的な情報の変化（接近速度等）をAIに認識させる。
+- **物理エンジンへの介入**: 車両寸法や最低速度制限（MIN_SPEED）を実機に合わせ、シミュレーションと現実の乖離を最小化。
 
 ---
 
 ## 📁 プロジェクト構成
 
-```
+```text
 f1tenth-rl-project/
 ├── src/
 │   ├── f1_env.py              # F1Tenth Gym 環境ラッパー
-│   ├── rewards.py             # ⭐ 報酬計算ロジック（RewardConfig で柔軟に設定）
-│   └── config.py              # ⭐ 全体設定ファイル
+│   ├── rewards.py             # 報酬計算ロジック（ステア連動ペナルティ等の最新版）
+│   └── config.py              # ⭐ 核となる全体設定ファイル
 ├── scripts/
-│   ├── train.py               # 学習スクリプト
-│   ├── evaluate.py            # 評価スクリプト（結果を CSV/JSON に保存）
-│   ├── enjoy_wide.py          # マップ上に走行軌跡を表示するビジュアライザ
-│   ├── verify_workflow.py     # 環境動作確認スクリプト
-│   ├── view_spawn.py          # スポーン位置確認ツール
-│   ├── view_all_spawns.py     # 全スポーン位置を一括表示
-│   ├── utils/
-│   │   ├── read_logs.py       # TensorBoard ログ解析
-│   │   └── read_tfevents.py   # TFEvents ファイル解析（依存なし）
-│   └── tests/
-│       ├── test_cleanup.py        # 環境・import の動作確認
-│       ├── test_rewards.py        # 報酬計算ロジックの単体テスト
-│       ├── test_calibration.py    # 観測正規化パラメータの収集
-│       └── test_normalization.py  # 正規化の動作確認
-├── my_maps/                   # カスタムマップ
-├── models/                    # 学習済みモデル（.gitignore対象）
-├── logs/                      # TensorBoard ログ・評価結果（.gitignore対象）
-├── gif/                       # 出力動画（.gitignore対象）
-├── sharing/                   # チーム内共有資料
-├── Dockerfile.2204            # Dockerイメージ定義（Ubuntu 22.04 / RTX 50系対応）
-└── requirements.txt           # Python依存ライブラリ
-```
-
-
----
-
-## ⚙️ 前提環境
-
-### ハードウェア要件
-
-| 項目 | 最小 | 推奨 |
-|------|------|------|
-| CPU | 4コア | 8コア+ (i7/Ryzen7) |
-| RAM | 8GB | 16GB+ |
-| GPU | なし | NVIDIA RTX 3060+ (6GB) |
-| ストレージ | 50GB | 100GB |
-
-### ソフトウェア
-
-```bash
-docker --version          # 20.10+
-docker compose version    # 2.0+
-git --version             # 2.30+
-nvidia-smi                # GPU確認（あれば）
+│   ├── run_expXX.sh           # 実験ごとの一括実行スクリプト（学習・評価・動画）
+│   ├── train.py               # 学習スクリプト（--resume 対応）
+│   ├── evaluate.py            # 評価スクリプト（CSV/JSON保存）
+│   ├── enjoy_wide.py          # 走行軌跡表示ビジュアライザ
+│   └── view_spawn.py          # スポーン位置確認ツール
+├── EXPERIMENT_PLAN.md         # 📓 実験マスタープラン・唯一の真実 (Source of Truth)
+├── EXPERIMENT_REPORT.md       # 📈 歴史的な実験推移と得られた知見
+├── models/                    # 学習済みモデル（.zip / .onnx）
+└── logs/                      # ログ（exp29_output.log 等）
 ```
 
 ---
 
-## 🚀 クイックスタート
+## 🚀 実験ワークフロー
 
-### 1. クローン & ディレクトリ移動
+本プロジェクトでは、再現性を担保するためにシェルスクリプトによる自動化を推奨しています。
 
+### 1. 新しい実験の開始（例：EXP-30）
+`config.py` や `rewards.py` を調整した後、専用のスクリプトを作成・実行します。
 ```bash
-git clone https://github.com/775yuta-droid/f1tenth-rl-project.git
-cd f1tenth-rl-project
+# 実験用スクリプトの作成（既存のものをコピーして改変）
+cp scripts/run_exp29.sh scripts/run_exp30.sh
+
+# 実行（学習、評価、動画生成が自動で走ります）
+bash scripts/run_exp30.sh
 ```
 
-### 2. Dockerイメージのビルド
-
+### 2. 進捗の確認
 ```bash
-docker compose build
-```
+# リアルタイムログ監視
+tail -f logs/exp30_output.log
 
-### 3. コンテナ起動
-
-```bash
-docker compose up -d
-```
-
-### 4. コンテナに接続
-
-```bash
-docker compose exec f1-sim-latest bash
-# 以降のコマンドはコンテナ内で実行
-```
-
-> [!NOTE]
-> CPUのみの環境では `src/config.py` の `DEVICE` は既に `"cpu"` に設定されています。
-> 多コアCPU（13コア以上）では PyTorch のスレッド数が自動的に最適化されます。
-> 手動で変更する場合: `TORCH_NUM_THREADS=4 python3 scripts/train.py`
-
-### 5. 動作確認
-
-```bash
-# コンテナ内 /workspace で実行
-python3 scripts/verify_workflow.py
-```
-
----
-
-## 📚 主要スクリプト
-
-### インストール
-
-```bash
-# プロジェクトディレクトリで実行（開発モード）
-pip install -e .
-```
-
-### 学習
-
-```bash
-# コンテナ内で実行
-python3 scripts/train.py --steps 500000
-
-# 継続学習（--resume でモデルを指定）
-python3 scripts/train.py --steps 500000 --resume models/checkpoints/my_model_1000000_steps
-```
-
-### 評価
-
-```bash
-python3 scripts/evaluate.py --episodes 10 --model models/my_model
-```
-
-評価が完了すると `logs/benchmark_YYYYMMDD_HHMMSS.csv` と `.json` が生成されます。
-
-```bash
-# 最新の結果を確認
-cat /workspace/logs/benchmark_*.csv | tail -20
-```
-
-### ビジュアライザ（走行映像の生成）
-
-```bash
-# マップ上に走行軌跡を描画（MP4 or GIF を出力）
-python3 scripts/enjoy_wide.py --steps 1500 --save gif/output.mp4
-```
-
-### TensorBoard でログ確認
-
-```bash
-# ホスト側で実行
+# TensorBoardでの確認
 tensorboard --logdir logs --host localhost
-# ブラウザで http://localhost:6006 を開く
-```
-
-### スポーン位置の確認
-
-```bash
-python3 scripts/view_spawn.py          # 現在のスポーン位置を画像に出力
-python3 scripts/view_all_spawns.py     # 全スポーン位置を一括表示
 ```
 
 ---
 
-## ⚙️ 設定ファイル (src/config.py)
+## 💡 これまでの重要知見 (Key Findings)
 
-### マップの切り替え
+実験を通じて蓄積された、学習を成功させるための「鉄則」です。
 
-```python
-# 使用するマップを変更する（拡張子なしのパス）
-MAP_PATH = '/opt/f1tenth_gym/gym/f110_gym/envs/maps/berlin'
-
-# 利用可能なマップ例
-# - berlin       : 市街地コース風
-# - levine       : 廊下型（基本マップ）
-# - skirk        : テストコース型
-# - vegas        : ラスベガス風
-# - stata_basement: 複雑な地下通路
-# - /workspace/my_maps/my_map : カスタムマップ
-```
-
-> [!IMPORTANT]
-> マップを変更した場合は、観測正規化パラメータの再取得を推奨します:
-> ```bash
-> python3 scripts/tests/test_calibration.py
-> ```
-> 出力された値を `config.py` の `LIDAR_MEAN` 等に反映してください。
+1.  **物理制限の壁 (知見12/13)**: `MIN_SPEED=1.0` ではコーナーを曲がりきれない。物理的に不可能なタスクをAIに強いると「直進して衝突」などの局習解に陥るため、適切な `MIN_SPEED`（0.3〜0.5）の設定が必須。
+2.  **行動の発散 (知見2)**: `log_std_init` を適切に設定しないと、行動のばらつき（std）が20を超えて発散（パニック状態）し、完走率が0%になる。初期値は `-1.0` 以下を推奨。
+3.  **Resume（継続学習）の威力**: 完走100%を達成した EXP-25 などの成功モデルから、速度設定のみを上げて Resume することで、曲がる能力を維持したまま高速化が可能。
+4.  **観測次元の整合性**: `DOWNSAMPLE_FACTOR` と `FRAME_STACK` の積が変わると観測次元が変わり、モデルのロードができなくなる。Resume時は必ずこれらの値を一致させること。
 
 ---
 
-## 🏎️ 実機デプロイ (Jetson) へのステップ
+## 🛠️ 設定ファイルの優先順位
 
-学習したモデルを実機で動かすための手順です。詳細は [jetson-ros2-project](file:///home/yuta775/projects/jetson-ros2-project) を参照してください。
-
-### 1. ONNX 形式への変換
-実機での推論速度を向上させるため、PyTorch (`.zip`) モデルを ONNX (`.onnx`) 形式に変換します。
-```bash
-python3 scripts/export/convert_ppo_to_onnx.py --model models/ppo_f1_my_map_steps10000000
-```
-※ 同名の `.onnx` ファイルが生成されます。
-
-### 2. 正規化パラメータの取得
-実機側の `params.yaml` に設定するための統計量を確認します。
-```bash
-# config.py の内容を表示して確認
-cat src/config.py | grep -A 5 "LIDAR_MEAN"
-```
-
-### 3. 実機への送付
-生成された `.onnx` ファイルを Jetson の `models/` ディレクトリへコピーしてください。
-実機側で `scripts/calibration.py` を実行し、`src/config.py` の値を入力することで準備完了です。
-
-### 環境変数でのパス変更
-
-`config.py` のパス設定は環境変数で上書き可能です。Docker 起動時や CI 環境で便利です：
-
-```bash
-# docker compose exec に環境変数を渡す例
-docker compose exec -e MAP_PATH=/workspace/my_maps/my_map f1-sim-latest python3 scripts/train.py
-
-# または docker-compose.yml の environment セクションに追記
-```
-
-| 環境変数 | デフォルト値 | 説明 |
-|---------|-------------|------|
-| `MAP_PATH` | `/workspace/my_maps/my_map` | 使用するマップ |
-| `MODEL_DIR` | `/workspace/models` | モデルの保存先 |
-| `LOG_DIR` | `/workspace/logs` | ログの保存先 |
-| `TORCH_NUM_THREADS` | 自動判定 | PyTorchのスレッド数（13コア以上は4に制限）|
-
-### 学習パラメータ
-
-| パラメータ | 推奨値 | 説明 |
-|-----------|--------|------|
-| `TOTAL_TIMESTEPS` | 300,000〜1,500,000 | 総学習ステップ数 |
-| `LEARNING_RATE` | `1e-4` | 学習率 |
-| `NET_ARCH` | `[128, 128]` | ネットワーク構造 |
-
-```python
-# テスト用（数分）
-TOTAL_TIMESTEPS = 50_000
-NET_ARCH = [64, 64]
-
-# 標準学習（数時間）
-TOTAL_TIMESTEPS = 5_000_000
-NET_ARCH = [128, 128]
-
-# 高精度（10時間+）
-TOTAL_TIMESTEPS = 25_000_000
-NET_ARCH = [256, 256]
-```
-
-### 観測空間パラメータ
-
-| パラメータ | 推奨値 | 説明 |
-|-----------|--------|------|
-| `LIDAR_DOWNSAMPLE_FACTOR` | `2` | 1080 → 540点に削減 |
-| `INCLUDE_VEHICLE_STATE` | `True` | 速度・ステアリング角を観測に含める |
-| `INCLUDE_LIDAR_RESIDUAL` | `True` | LiDAR差分を観測に含める |
-| `NORMALIZE_OBSERVATIONS` | `True` | 観測値を正規化する |
-
-### 報酬設計
-
-```python
-REWARD_COLLISION = -2000.0   # 衝突ペナルティ
-REWARD_SURVIVAL  = 0.02      # ステップごとの生存報酬
-REWARD_FRONT_WEIGHT = 3.0    # 前方空きスペースへの報酬
-REWARD_SPEED_WEIGHT = 1.0    # 速度ボーナス
-```
-
----
-
-## 🐛 トラブルシューティング
-
-### CUDA out of memory
-
-```bash
-nvidia-smi  # GPU使用状況確認
-# config.py でネットワークを小さくする
-# NET_ARCH = [64, 64]
-```
-
-### ObservationSpace mismatch
-
-学習時と推論時で `config.py` の観測設定が異なると発生します。
-
-```bash
-# モデルが期待する観測次元を確認
-python3 -c "
-from stable_baselines3 import PPO
-model = PPO.load('models/my_model')
-print(f'Model expects: {model.observation_space.shape}')
-"
-```
-
-`LIDAR_DOWNSAMPLE_FACTOR` / `INCLUDE_LIDAR_RESIDUAL` / `INCLUDE_VEHICLE_STATE` の設定を学習時と一致させてください。
-
-### モデルがうまく動かない
-
-```bash
-python3 scripts/evaluate.py --episodes 5 --model models/my_model
-```
-
-### `EACCES: permission denied` (権限エラー)
-
-Dockerコンテナ内で作成されたログやモデルファイルは `root` ユーザーの所有となり、ホスト側（PC側）から削除や編集ができない場合があります。
-
-**対処法：** 所有権を現在のユーザーに変更してください。
-```bash
-sudo chown -R $USER:$USER /home/UserName/projects/f1tenth-rl-project
-```
-
----
-
-
-## 📖 実装リファレンス
-
-### 観測空間の構成
-
-```
-obs = [
-    lidar_downsampled,                    # 540次元 (1080 / 2)
-    lidar_downsampled - prev_lidar,       # 540次元 (残差, INCLUDE_LIDAR_RESIDUAL=True時)
-    [speed_normalized, steering_angle],   # 2次元 (INCLUDE_VEHICLE_STATE=True時)
-]
-# 合計: 1082次元 (デフォルト設定)
-```
-
-### アクション空間
-
-```
-action = [steering, throttle]   # どちらも [-1.0, +1.0] の正規化空間
-
-actual_steering = steering * STEER_SENSITIVITY
-actual_speed    = MIN_SPEED + (throttle + 1.0) * (MAX_SPEED - MIN_SPEED) / 2.0
-```
-
-### TensorBoard メトリクス
-
-| メトリクス | 意味 | 良い傾向 |
-|-----------|------|---------|
-| `train/loss` | ポリシー損失 | 低下 ✅ |
-| `train/value_loss` | 価値関数損失 | 低下 ✅ |
-| `train/entropy_loss` | 探索度 | 0.1〜0.3 ✅ |
-| `train/explained_variance` | 価値関数精度 | 0.8以上 ✅ |
-
----
-
-## 🚀 関連ドキュメント
-
-- [改善プラン](./sharing/plan.md) — Jetson実走行向け改善
-- [モデル構造説明](./sharing/model_structure.md) — MLPアーキテクチャ
-- [Jetsonデプロイ計画](./sharing/JETSON_DEPLOYMENT_PLAN.md) — 実機統合
-
----
-
-## 📚 参考リソース
-
-- [Stable Baselines3](https://stable-baselines3.readthedocs.io/)
-- [F1Tenth Gym](https://github.com/f1tenth/f1tenth_gym)
-- [PPO 論文](https://arxiv.org/abs/1707.06347)
+1.  **EXPERIMENT_PLAN.md**: 過去の全実験の結果と、次に何をすべきかが記された「脳」です。書き換える前に必ず読み、実行後は必ず結果を追記してください。
+2.  **src/config.py**: ステップ数、速度、スタック数など全ての物理パラメータを管理します。
+3.  **src/rewards.py**: スピード、安全、進捗の重み付けを定義します。
 
 ---
 
 ## 📝 バージョン情報
-
-- **作成**: 2026-02-24
-- **最終更新**: 2026-04-03
-- **バージョン**: 1.3.0
-- **対応 Python**: 3.10+
-
----
-
-## License
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-
-Licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+- **最終更新**: 2026-04-18
+- **最新実験フェーズ**: フェーズ5（Resumeによる安定高速化への挑戦）
+- **対応環境**: Ubuntu 20.04/22.04 + Docker + SB3 (PPO)
