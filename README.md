@@ -5,9 +5,36 @@ F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速�
 
 ---
 
+## 🚀 クイックスタート (Docker)
+
+別のPCへ移行した後、以下の手順で最短で実験を再開できます。
+
+### 1. 環境の起動
+\`\`\`bash
+# イメージのビルドとコンテナの起動
+docker compose up -d
+
+# コンテナ内に入る
+docker exec -it f1-sim-2204 bash
+\`\`\`
+
+### 2. 学習の実行 (EXP-34の例)
+\`\`\`bash
+# 実験用ディレクトリへ移動し実行
+bash scripts/experiments/run_exp34.sh
+\`\`\`
+
+### 3. 進捗確認
+別のターミナルで TensorBoard を起動してブラウザ（localhost:6006）で確認できます。
+\`\`\`bash
+tensorboard --logdir logs --host localhost
+\`\`\`
+
+---
+
 ## 📋 プロジェクト概要
 
-本プロジェクトでは、段階的な実験（EXP-01〜EXP-30）を通じて、F1Tenth車両の限界性能を引き出す学習を進めています。
+本プロジェクトでは、段階的な実験を通じて、F1Tenth車両の限界性能を引き出す学習を進めています。
 
 ### 🎯 技術的アプローチ
 - **LiDARダウンサンプリング**: 1080点 → 108点/216点に圧縮。計算負荷を抑えつつエッジを保持。
@@ -18,48 +45,44 @@ F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速�
 
 ## 📁 プロジェクト構成
 
-```text
+\`\`\`text
 f1tenth-rl-project/
-├── src/
-│   ├── f1_env.py              # F1Tenth Gym 環境ラッパー
-│   ├── rewards.py             # 報酬計算ロジック（ステア連動ペナルティ等の最新版）
-│   └── config.py              # ⭐ 核となる全体設定ファイル
-├── scripts/
-│   ├── run_expXX.sh           # 実験ごとの一括実行スクリプト（学習・評価・動画）
-│   ├── train.py               # 学習スクリプト（--resume 対応）
-│   ├── evaluate.py            # 評価スクリプト（CSV/JSON保存）
-│   ├── enjoy_wide.py          # 走行軌跡表示ビジュアライザ
-│   └── view_spawn.py          # スポーン位置確認ツール
-├── EXPERIMENT_PLAN.md         # 📓 実験マスタープラン・唯一の真実 (Source of Truth)
-├── EXPERIMENT_REPORT.md       # 📈 歴史的な実験推移と得られた知見
-├── models/                    # 学習済みモデル（.zip / .onnx）
-└── logs/                      # ログ（exp29_output.log 等）
-```
+├── src/                # ⭐ コアロジック
+│   ├── f1_env.py       # F1Tenth Gym 環境ラッパー
+│   ├── rewards.py      # 報酬計算ロジック
+│   ├── config.py       # 全体設定
+│   └── profiles.py     # PC別ハードウェア設定
+├── scripts/            # 🛠️ ツール
+│   ├── experiments/    # 🧪 個別実験スクリプト (run_expXX.sh)
+│   ├── train.py        # 学習メイン
+│   ├── evaluate.py     # 評価（CSV/JSON保存）
+│   └── enjoy_wide.py   # 動画/軌跡生成
+├── my_maps/            # 🗺️ カスタムマップ (.pgm/.yaml)
+├── EXPERIMENT_PLAN.md   # 📓 実験マスタープラン (Source of Truth)
+├── EXPERIMENT_REPORT.md # 📈 実験履歴と知見集
+├── models/             # �� 学習済みモデル (.zip) ※Git管理外
+└── logs/               # 📊 TensorBoardログ ※Git管理外
+\`\`\`
 
 ---
 
-## 🚀 実験ワークフロー
+## ⚙️ 主要な環境変数
+\`config.py\` を通じて、以下の環境変数で動作を制御できます。
 
-本プロジェクトでは、再現性を担保するためにシェルスクリプトによる自動化を推奨しています。
+| 変数名 | 説明 | 例 |
+| :--- | :--- | :--- |
+| \`TRAINING_PROFILE\` | ハードウェア設定 (laptop/desktop/auto) | \`laptop\` |
+| \`MAP_PATH\` | 使用するマップのパス（拡張子なし） | \`/workspace/my_maps/testmap-0416\` |
+| \`MIN_SPEED\` | 車両の最低速度制限 | \`0.3\` |
+| \`MAX_SPEED\` | 車両の最高速度制限 | \`2.0\` |
 
-### 1. 新しい実験の開始（例：EXP-30）
-`config.py` や `rewards.py` を調整した後、専用のスクリプトを作成・実行します。
-```bash
-# 実験用スクリプトの作成（既存のものをコピーして改変）
-cp scripts/run_exp29.sh scripts/run_exp30.sh
+---
 
-# 実行（学習、評価、動画生成が自動で走ります）
-bash scripts/run_exp30.sh
-```
+## 📦 モデルの管理と移行
+モデルファイル（\`models/*.zip\`）はファイルサイズが大きいため Git 管理から除外されています。別のPCへ移行する場合は、以下のファイルを優先的に手動コピーしてください。
 
-### 2. 進捗の確認
-```bash
-# リアルタイムログ監視
-tail -f logs/exp30_output.log
-
-# TensorBoardでの確認
-tensorboard --logdir logs --host localhost
-```
+1. **\`ppo_10M_exp25_fast_stable.zip\`**: 広域マップ完走100%のベース。
+2. **\`ppo_exp33b_p3_narrow_normal.zip\`**: 狭域マップ適応済みのベース。
 
 ---
 
@@ -67,22 +90,14 @@ tensorboard --logdir logs --host localhost
 
 実験を通じて蓄積された、学習を成功させるための「鉄則」です。
 
-1.  **物理制限の壁 (知見12/13)**: `MIN_SPEED=1.0` ではコーナーを曲がりきれない。物理的に不可能なタスクをAIに強いると「直進して衝突」などの局習解に陥るため、適切な `MIN_SPEED`（0.3〜0.5）の設定が必須。
-2.  **行動の発散 (知見2)**: `log_std_init` を適切に設定しないと、行動のばらつき（std）が20を超えて発散（パニック状態）し、完走率が0%になる。初期値は `-1.0` 以下を推奨。
+1.  **物理制限の壁**: \`MIN_SPEED=1.0\` ではコーナーを曲がりきれない。物理的に不可能なタスクをAIに強いると「直進して衝突」などの局習解に陥るため、適切な \`MIN_SPEED\`（0.3〜0.5）の設定が必須。
+2.  **行動の発散**: \`log_std_init\` を適切に設定しないと、行動のばらつき（std）が20を超えて発散（パニック状態）し、完走率が0%になる。初期値は \`-1.0\` 以下を推奨。
 3.  **Resume（継続学習）の威力**: 完走100%を達成した EXP-25 などの成功モデルから、速度設定のみを上げて Resume することで、曲がる能力を維持したまま高速化が可能。
-4.  **観測次元の整合性**: `DOWNSAMPLE_FACTOR` と `FRAME_STACK` の積が変わると観測次元が変わり、モデルのロードができなくなる。Resume時は必ずこれらの値を一致させること。
-
----
-
-## 🛠️ 設定ファイルの優先順位
-
-1.  **EXPERIMENT_PLAN.md**: 過去の全実験の結果と、次に何をすべきかが記された「脳」です。書き換える前に必ず読み、実行後は必ず結果を追記してください。
-2.  **src/config.py**: ステップ数、速度、スタック数など全ての物理パラメータを管理します。
-3.  **src/rewards.py**: スピード、安全、進捗の重み付けを定義します。
+4.  **観測次元の整合性**: \`DOWNSAMPLE_FACTOR\` と \`FRAME_STACK\` の積が変わると観測次元が変わり、モデルのロードができなくなる。Resume時は必ずこれらの値を一致させること。
 
 ---
 
 ## 📝 バージョン情報
-- **最終更新**: 2026-04-18
-- **最新実験フェーズ**: フェーズ5（Resumeによる安定高速化への挑戦）
+- **最終更新**: 2026-04-20
+- **最新実験フェーズ**: フェーズ9（物理特性の回帰と生存の極致）
 - **対応環境**: Ubuntu 20.04/22.04 + Docker + SB3 (PPO)

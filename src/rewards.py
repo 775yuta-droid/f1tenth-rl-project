@@ -116,7 +116,7 @@ def calculate_reward(
     # 狭い直線でもドリフトは即死のため、中心を外すほど急激にマイナス
     total_width  = left_side + right_side
     center_ratio = abs(left_side - right_side) / (total_width + 1e-6)  # 0=中央, 1=壁
-    center_penalty = -(center_ratio ** 2) * 3.0  # 二乗: わずかなズレも強く罰する
+    center_penalty = -(center_ratio ** 2) * 10.0  # EXP-35: 20.0 -> 10.0 (物理を戻したのでマージン緩和)
     reward += center_penalty
 
     # 6. 側面壁への超近距離ペナルティ【狭い直線対策: デッドライン0.35m】
