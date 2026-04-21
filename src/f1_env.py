@@ -41,8 +41,8 @@ class F1TenthRL(gym.Env):
             self.env.sim.agents[0].params['width'] = config.CAR_WIDTH
         
         # 観測空間の計算
-        # 1. LiDAR: 1080 -> ダウンサンプリング
-        self.lidar_size = 1080 // config.LIDAR_DOWNSAMPLE_FACTOR
+        # 1. LiDAR: 1080 -> 270°(810点) に制限しダウンサンプリング
+        self.lidar_size = 810 // config.LIDAR_DOWNSAMPLE_FACTOR
         
         # 2. 車両状態: [速度, ステアリング] (2次元)
         self.state_size = 2 if config.INCLUDE_VEHICLE_STATE else 0
@@ -82,8 +82,8 @@ class F1TenthRL(gym.Env):
         """
         生の観測データを加工して返す
         """
-        # LiDARデータのダウンサンプリング (EXP-23: mean -> min に復帰。積層も維持)
-        scans = raw_obs['scans'][0]
+        # LiDARデータのスライス (270°: 135-945) & ダウンサンプリング
+        scans = raw_obs['scans'][0][135:945]
         downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
         
         # ΔLiDAR（残差）の計算
@@ -143,8 +143,8 @@ class F1TenthRL(gym.Env):
         result = self.env.reset(poses=initial_poses)
         raw_obs = result[0] if isinstance(result, tuple) else result
 
-        # 初期状態のLiDARを取得してprev_lidarをセット
-        scans = raw_obs['scans'][0]
+        # 初期状態のLiDARをスライスしてprev_lidarをセット
+        scans = raw_obs['scans'][0][135:945]
         self.prev_lidar = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
 
         # 前位置をリセット

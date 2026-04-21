@@ -1,4 +1,4 @@
-image: map_1_0421_171540.pgm
+image: map-tamoku.pgm
 mode: trinary
 resolution: 0.05
 origin: [-11.8, -9.83, 0]
