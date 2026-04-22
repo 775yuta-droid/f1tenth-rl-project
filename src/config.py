@@ -42,26 +42,30 @@ LEARNING_RATE = 5e-5  # EXP-25 付近の標準的な学習率に戻す
 NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
+LIDAR_BEAMS = 1440             # シミュレータの全周ビーム数 (360°分)
+# 270°分を1080点とするため、360°では 1080 * 360 / 270 = 1440点 となる (0.25°刻み)
 LIDAR_DOWNSAMPLE_FACTOR = 5   # EXP-39: 解像度を2倍に(10->5)
-FRAME_STACK = 4                # EXP-30: 4に戻す (EXP-25との整合性を確保。視点: 108点×4、216点×2は両方434次元だが内容が異なる)
+FRAME_STACK = 4                # スタックするフレーム数
+FRAME_SKIP = 3                 # 間引き間隔 (40Hz時、Skip=3で0.25秒分をカバー)
 N_ENVS = 8                     # EXP-22: 8環境並列化 (SubprocVecEnv)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
 
 # --- 正規化設定 ---
 NORMALIZE_OBSERVATIONS = True
-# Calibrated statistics based on 10000 random steps
-LIDAR_MEAN = 26.880
-LIDAR_STD = 8.864
-LIDAR_RESIDUAL_MEAN = np.nan
-LIDAR_RESIDUAL_STD = np.nan
-VEHICLE_STATE_MEAN = np.array([0.424, -0.008])  # [vel, steer]
-VEHICLE_STATE_STD = np.array([0.066, 0.127])
+LIDAR_MEAN = 2.188             # 0.25°刻み1440本仕様での平均
+LIDAR_STD = 2.174              # 0.25°刻み1440本仕様での標準偏差
+LIDAR_RESIDUAL_MEAN = 0.0
+LIDAR_RESIDUAL_STD = 1.0
+VEHICLE_STATE_MEAN = np.array([0.284, -0.005])  # [vel, steer]
+VEHICLE_STATE_STD = np.array([0.187, 0.111])
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.03  # EXP-32: 0.03 -> 0.01 (Resume時の探索を抜い、EXP-25の知識を活かす)
 
 # --- 物理設定（マシン性能） ---
+CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
+SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
 MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.3"))
 MAX_SPEED = float(os.environ.get("MAX_SPEED", "2.5"))  # EXP-25: 2.5m/s

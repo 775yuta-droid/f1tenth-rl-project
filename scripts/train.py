@@ -58,8 +58,8 @@ def main():
         return _init
 
     env = SubprocVecEnv([make_env(i) for i in range(config.N_ENVS)])
-    # EXP-21: フレーム積層の適用 (SubprocVecEnvの上にラップ)
-    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
+    # EXP-38: フレーム積層は環境内部（f1_env.py）で間引きを含めて処理するため、標準ラッパーは使用しない
+    # env = VecFrameStack(env, n_stack=config.FRAME_STACK)
 
     if args.resume:
         # --- 継続学習: 既存モデルをロードして学習を再開 ---

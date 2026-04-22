@@ -166,8 +166,8 @@ def main():
     # 環境の初期化
     env_single = F1TenthRL(config.MAP_PATH)
     env = DummyVecEnv([lambda: env_single])
-    # EXP_21: フレーム積層の適用
-    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
+    # 環境内部で Stack を行っているため、ラッパーは不要
+    # env = VecFrameStack(env, n_stack=config.FRAME_STACK)
     
     # モデルの読み込み (ディレクトリ指定がない場合は config.MODEL_DIR を指定)
     if args.model:
