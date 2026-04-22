@@ -86,6 +86,30 @@ f1tenth-rl-project/
 
 ---
 
+## 🛠️ ONNX変換 (実機デプロイ用)
+
+学習したモデルを実機（Jetson等）で軽量に動作させるため、ONNX形式への変換をサポートしています。
+
+### 1. ONNX形式への変換
+`scripts/export/convert_ppo_to_onnx.py` を使用して、SB3の `.zip` モデルを `.onnx` に変換します。
+```bash
+python scripts/export/convert_ppo_to_onnx.py --model models/ppo_expXX.zip
+```
+※ デフォルトでは同じディレクトリに `.onnx` ファイルが生成されます。`--output` で出力先を指定可能です。
+
+### 2. 変換の検証
+変換後のモデルが元のモデルと同じ推論結果を出すか確認します。
+```bash
+python scripts/export/verify_onnx.py --sb3 models/ppo_expXX.zip --onnx models/ppo_expXX.onnx
+```
+`Success: ONNX outputs match SB3 outputs!` と表示されれば成功です。
+
+### ⚠️ 注意点
+- **観測次元**: 変換時の観測次元（LiDAR点数 + 状態数）は学習時の設定に依存します。実機の推論コード側でも、入力次元を一致させる必要があります（例：108点LiDAR + 2点State = 110次元）。
+- **決定論的推論**: 実機デプロイ用のONNXモデルは、常に決定論的な行動（Deterministic Action）を出力するようにエクスポートされます。
+
+---
+
 ## 💡 これまでの重要知見 (Key Findings)
 
 実験を通じて蓄積された、学習を成功させるための「鉄則」です。

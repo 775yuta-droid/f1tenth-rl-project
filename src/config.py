@@ -42,7 +42,7 @@ LEARNING_RATE = 5e-5  # EXP-25 付近の標準的な学習率に戻す
 NET_ARCH = [128, 128]
 
 # --- 観測空間の工夫 ---
-LIDAR_DOWNSAMPLE_FACTOR = 10   # EXP-30: 10に戻す (EXP-25の観渫空間に完全一致させ Resumeを可能にする)
+LIDAR_DOWNSAMPLE_FACTOR = 5   # EXP-39: 解像度を2倍に(10->5)
 FRAME_STACK = 4                # EXP-30: 4に戻す (EXP-25との整合性を確保。視点: 108点×4、216点×2は両方434次元だが内容が異なる)
 N_ENVS = 8                     # EXP-22: 8環境並列化 (SubprocVecEnv)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
