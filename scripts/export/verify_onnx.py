@@ -42,11 +42,11 @@ def verify_conversion(sb3_path, onnx_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sb3", type=str, required=True, help="Path to SB3 .zip model")
-    parser.add_argument("--onnx", type=str, help="Path to .onnx model")
+    parser.add_argument("--model", type=str, required=True, help="Path to SB3 .zip model")
+    parser.add_argument("--output", type=str, help="Path to .onnx model")
     args = parser.parse_args()
     
-    if not args.onnx:
-        args.onnx = args.sb3.replace(".zip", ".onnx")
+    if not args.output:
+        args.output = args.model.replace(".zip", ".onnx")
         
-    verify_conversion(args.sb3, args.onnx)
+    verify_conversion(args.model, args.output)
