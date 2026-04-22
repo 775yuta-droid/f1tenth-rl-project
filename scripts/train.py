@@ -42,8 +42,8 @@ def main():
     checkpoint_dir = os.path.join(config.MODEL_DIR, "checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
     
-    # 学習の進捗に合わせて保存
-    save_freq = max(args.steps // 5, 1000)
+    # 学習の進捗に合わせて保存 (20万ステップごと)
+    save_freq = 200000
     checkpoint_callback = CheckpointCallback(
         save_freq=save_freq, 
         save_path=checkpoint_dir,

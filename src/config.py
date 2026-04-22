@@ -47,7 +47,7 @@ LIDAR_BEAMS = 1440             # シミュレータの全周ビーム数 (360°�
 LIDAR_DOWNSAMPLE_FACTOR = 5   # EXP-39: 解像度を2倍に(10->5)
 FRAME_STACK = 4                # スタックするフレーム数
 FRAME_SKIP = 3                 # 間引き間隔 (40Hz時、Skip=3で0.25秒分をカバー)
-N_ENVS = 8                     # EXP-22: 8環境並列化 (SubprocVecEnv)
+N_ENVS = 1                      # テストのため 1 に削減 (元は 8)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
 

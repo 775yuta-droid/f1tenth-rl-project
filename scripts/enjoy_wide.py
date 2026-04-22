@@ -68,7 +68,17 @@ class MapRenderer:
         py = self.height - (y - self.origin[1]) / self.resolution
         return px, py
 
-    def update(self, car_state, scans, action, reward, step, collisions):
+    def break_trail(self):
+        """衝突時に軌跡を完全にリセットする"""
+        self.trail_x = []
+        self.trail_y = []
+        self.trail.set_data([], [])
+
+    def update(self, car_state, scans, action, reward, step, collisions, reset_trail=False):
+        """レンダリングを更新し、画像バッファを返す"""
+        if reset_trail:
+            self.break_trail()
+            
         car_x, car_y, car_theta, car_vel = car_state
         px, py = self.world_to_pixel(car_x, car_y)
 
@@ -124,7 +134,10 @@ class MapRenderer:
         self.car_arrow = self.ax.arrow(px, py, dx, dy, head_width=4, head_length=5, fc='#ff0055', ec='white', zorder=6)
 
         # LiDAR点群
-        angles = np.linspace(-2.35, 2.35, 1080) + car_theta
+        num_scans = scans.shape[0]
+        # FOV は実機仕様に合わせて 270度 (2.356 rad * 2) と想定
+        fov_rad = 4.7 # もしくは実機の 4.712 (3/2 * pi)
+        angles = np.linspace(-fov_rad/2, fov_rad/2, num_scans) + car_theta
         scan_x_world = car_x + scans * np.cos(angles)
         scan_y_world = car_y + scans * np.sin(angles)
         scan_px, scan_py = self.world_to_pixel(scan_x_world, scan_y_world)
@@ -195,6 +208,7 @@ def main():
     frames = []
     collisions = 0
     total_reward = 0
+    reset_flag = False
     
     print(f"--- シミュレーション開始 (最大 {args.steps} ステップ) ---")
     
@@ -224,8 +238,9 @@ def main():
             # 描画更新 (2ステップに1回)
             if i % 2 == 0 and not args.no_render:
                 # action[0] (現在のエージェントの操作) を渡す
-                frame = renderer.update(car_state, raw_scan, action[0], reward, i, collisions)
+                frame = renderer.update(car_state, raw_scan, action[0], reward, i, collisions, reset_trail=reset_flag)
                 frames.append(frame)
+                reset_flag = False
                 
                 if (i // 2) % 50 == 0:
                     print(f"レンダリング中... Step: {i}")
@@ -233,9 +248,14 @@ def main():
             if done:
                 collisions += 1
                 print(f"衝突！ Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f})")
+                
+                # 衝突時の最後のフレームをレンダリングに反映させるため、ここで一旦分断
+                renderer.break_trail()
+                
                 obs = env.reset()
                 total_reward = 0
-                # 衝突時に軌跡をリセットするかどうかは好みだが、ここでは継続して描画する
+                # 次のレンダリング時に確実にクリア
+                reset_flag = True
 
     except KeyboardInterrupt:
         print("\n中断されました。")

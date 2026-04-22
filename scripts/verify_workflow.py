@@ -69,11 +69,11 @@ def main():
         sys.exit(1)
     print("✅ 学習プロセスのチェック完了")
 
-    # 3. 描画・GIF生成の実行
-    print("\n[3/3] 描画とGIF生成の実行")
+    # 3. 描画とmp4生成の実行
+    print("\n[3/3] 描画とmp4生成の実行")
     test_mp4_path = os.path.join(config.GIF_DIR, "test_verify_simulation.mp4")
     enjoy_steps = 300
-    enjoy_cmd = f"python3 {SCRIPT_DIR}/enjoy_wide.py --steps {enjoy_steps} --model {test_model_path} --save {test_mp4_path}"
+    enjoy_cmd = f"python3 {SCRIPT_DIR}/enjoy_wide.py --steps {enjoy_steps} --model {test_model_path} --save {test_mp4_path}.mp4"
     
     if not run_command(enjoy_cmd, "描画テスト"):
         sys.exit(1)
