@@ -59,7 +59,7 @@ VEHICLE_STATE_MEAN = np.array([0.424, -0.008])  # [vel, steer]
 VEHICLE_STATE_STD = np.array([0.066, 0.127])
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.01  # EXP-32: 0.03 -> 0.01 (Resume時の探索を抜い、EXP-25の知識を活かす)
+PPO_ENT_COEF = 0.03  # EXP-32: 0.03 -> 0.01 (Resume時の探索を抜い、EXP-25の知識を活かす)
 
 # --- 物理設定（マシン性能） ---
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
@@ -71,7 +71,7 @@ CAR_LENGTH = 0.465
 CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻し、物理的に狭いコースを曲がれるようにする)
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -50.0
+REWARD_COLLISION = -100.0
 REWARD_SURVIVAL  = 0.2     # EXP-25: 0.2
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 2.0   # EXP-26: 1.0 -> 2.0 (速度報酬の重みを2倍に)

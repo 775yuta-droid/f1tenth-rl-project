@@ -100,7 +100,7 @@ python scripts/export/convert_ppo_to_onnx.py --model models/ppo_expXX.zip
 ### 2. 変換の検証
 変換後のモデルが元のモデルと同じ推論結果を出すか確認します。
 ```bash
-python scripts/export/verify_onnx.py --sb3 models/ppo_expXX.zip --onnx models/ppo_expXX.onnx
+python scripts/export/verify_onnx.py --model models/ppo_expXX.zip --output models/ppo_expXX.onnx
 ```
 `Success: ONNX outputs match SB3 outputs!` と表示されれば成功です。
 
