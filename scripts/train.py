@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 共通モジュールのimport
 from src.f1_env import F1TenthRL
 from src import config
+from src.cnn_policy import Conv1DLidarExtractor
 
 import argparse
 
@@ -77,15 +78,40 @@ def main():
         )
     else:
         # --- 新規学習 ---
+        if config.USE_CNN_POLICY:
+            # Conv1D 特徴抽出器の設定を環境インスタンスから自動取得
+            _sample_env = F1TenthRL(config.MAP_PATH)
+            _lidar_size  = _sample_env.lidar_size
+            _extra_size  = _sample_env.state_size + _sample_env.extra_size  # vehicle_state + extra_feats
+            _frame_stack = config.FRAME_STACK
+            _sample_env.env.close()
+            del _sample_env
+
+            policy_kwargs = dict(
+                features_extractor_class=Conv1DLidarExtractor,
+                features_extractor_kwargs=dict(
+                    lidar_size=_lidar_size,
+                    frame_stack=_frame_stack,
+                    extra_size=_extra_size,
+                    features_dim=256,
+                ),
+                net_arch=config.NET_ARCH,
+                log_std_init=-1.0,
+            )
+            print(f"[CNN] Conv1DLidarExtractor: lidar={_lidar_size}, extra={_extra_size}, stack={_frame_stack}")
+        else:
+            policy_kwargs = dict(
+                net_arch=config.NET_ARCH,
+                log_std_init=-1.0,
+            )
+            print("[MLP] 従来の MlpPolicy を使用")
+
         model = PPO(
             "MlpPolicy",
             env,
             learning_rate=config.LEARNING_RATE,
             ent_coef=config.PPO_ENT_COEF,
-            policy_kwargs=dict(
-                net_arch=config.NET_ARCH,
-                log_std_init=-1.0,
-            ),
+            policy_kwargs=policy_kwargs,
             verbose=1,
             tensorboard_log=config.LOG_DIR,
             device=config.DEVICE

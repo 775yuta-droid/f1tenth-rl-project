@@ -72,7 +72,10 @@ class F1TenthRL(gym.Env):
         # 3. LiDAR残差: 現在と前ステップの差分 (同次元)
         self.residual_size = self.lidar_size if config.INCLUDE_LIDAR_RESIDUAL else 0
         
-        total_obs_size = self.lidar_size + self.residual_size + self.state_size
+        # 4. 追加スカラー特徴: [front_dist, min_dist] (2次元)
+        self.extra_size = 2 if config.INCLUDE_EXTRA_FEATURES else 0
+        
+        total_obs_size = self.lidar_size + self.residual_size + self.state_size + self.extra_size
         
         # 前ステップのLiDAR（Δ=0で初期化）
         self.prev_lidar = np.zeros(self.lidar_size, dtype=np.float32)
@@ -95,23 +98,29 @@ class F1TenthRL(gym.Env):
             dtype=np.float32
         )
         
-        # 観測空間の定義 (FRAME_STACK分を結合するため次元数を拡大)
+        # 観測空間の定義
+        # LiDAR成分: 0-1反転正規化後 [0.0, 1.0]
+        # 車両状態・追加特徴: 概ね [-3.0, 3.0] 内に収まるため low/high を展開
         self.observation_space = gym.spaces.Box(
-            low=-30, 
-            high=30, 
-            shape=(total_obs_size * config.FRAME_STACK,), 
+            low=-3.0,
+            high=3.0,
+            shape=(total_obs_size * config.FRAME_STACK,),
             dtype=np.float32
         )
 
     def _get_obs(self, raw_scans):
         """
         加工済みのLiDARデータを受け取り、残りの前処理（ダウンサンプリング、正規化、積層）を行って返す
+
+        正規化方式 (development-plan.md 推奨):
+            lidar_norm = 1.0 - lidar / LIDAR_MAX_RANGE
+            -> 近い壁=1.0, 遠い空間=0.0 (寄り辺り感觓が強いほど大きな値)
         """
         # 1440点の中から、正面を中心とした270°（1080点）をスライス
         # 中心(720) ± 540 = 180 〜 1260
         scans = raw_scans[180:1260]
         
-        # ダウンサンプリング
+        # ダウンサンプリング (minプールで最小距離を保存)
         downsampled = scans.reshape(self.lidar_size, config.LIDAR_DOWNSAMPLE_FACTOR).min(axis=1)
         
         # ΔLiDAR（残差）の計算
@@ -119,34 +128,41 @@ class F1TenthRL(gym.Env):
         
         # 現在値を次ステップの「前値」として保存
         self.prev_lidar = downsampled.copy()
-        
-        parts = [downsampled]
+
+        # ==========================================================
+        # 0-1 反転正規化 (development-plan.md 推奨方式)
+        # NaN/inf は reset/step 側でクリーニング済み。
+        # 近い壁 → 1.0, 遠い空間 → 0.0
+        # ==========================================================
+        lidar_norm = 1.0 - np.clip(downsampled, 0.0, config.LIDAR_MAX_RANGE) / config.LIDAR_MAX_RANGE
+
+        # 追加スカラー特徴の注出用値を現時点で計算
+        # LiDAR インデックスは rewards.py と同じ 270° マスク ([135:945])
+        _H = downsampled[135:945]  # 810点の Hokuyo 有効帯役
+        front_raw = float(np.min(_H[285:525]))  # 前方空間
+        min_raw   = float(np.min(_H))           # 全周最小距離
+        # 0-1 スケーリング (近いほど大きな値)
+        front_feat = 1.0 - np.clip(front_raw, 0.0, config.LIDAR_MAX_RANGE) / config.LIDAR_MAX_RANGE
+        min_feat   = 1.0 - np.clip(min_raw,   0.0, config.LIDAR_MAX_RANGE) / config.LIDAR_MAX_RANGE
+
+        norm_parts = [lidar_norm]
         
         if config.INCLUDE_LIDAR_RESIDUAL:
-            parts.append(delta_lidar)
-        
+            # 残差も max_range で正規化 ([-1, 1] 範囲)
+            delta_norm = np.clip(delta_lidar / config.LIDAR_MAX_RANGE, -1.0, 1.0)
+            norm_parts.append(delta_norm)
+
         if config.INCLUDE_VEHICLE_STATE:
             # 現在の車両状態を取得 [速度, ステアリング]
             state = self.env.sim.agents[0].state
-            vel = state[3] / config.MAX_SPEED
-            steer = state[2]
-            parts.append(np.array([vel, steer], dtype=np.float32))
+            vel   = float(state[3]) / config.MAX_SPEED       # [0, 1]付近
+            steer = float(state[2]) / self.steer_limit       # [-1, 1]
+            norm_parts.append(np.array([vel, steer], dtype=np.float32))
 
-        if config.NORMALIZE_OBSERVATIONS:
-            norm_parts = []
-            # LiDAR 正規化
-            lidar_norm = (downsampled - config.LIDAR_MEAN) / config.LIDAR_STD
-            norm_parts.append(lidar_norm)
-            if config.INCLUDE_LIDAR_RESIDUAL:
-                delta_norm = (delta_lidar - config.LIDAR_RESIDUAL_MEAN) / config.LIDAR_RESIDUAL_STD
-                norm_parts.append(delta_norm)
-            if config.INCLUDE_VEHICLE_STATE:
-                state_arr = np.array([vel, steer], dtype=np.float32)
-                state_norm = (state_arr - config.VEHICLE_STATE_MEAN) / config.VEHICLE_STATE_STD
-                norm_parts.append(state_norm)
-            current_obs = np.concatenate(norm_parts).astype(np.float32)
-        else:
-            current_obs = np.concatenate(parts).astype(np.float32)
+        if config.INCLUDE_EXTRA_FEATURES:
+            norm_parts.append(np.array([front_feat, min_feat], dtype=np.float32))
+
+        current_obs = np.concatenate(norm_parts).astype(np.float32)
 
         # フレーム積層処理 (間引きを適用)
         self.obs_buffer.append(current_obs)

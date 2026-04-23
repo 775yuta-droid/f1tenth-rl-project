@@ -50,15 +50,18 @@ FRAME_SKIP = 3                 # 間引き間隔 (40Hz時、Skip=3で0.25秒分�
 N_ENVS = 1                      # テストのため 1 に削減 (元は 8)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
+INCLUDE_EXTRA_FEATURES = True  # 追加特徴 [front_dist, min_dist] を観測に含める
 
 # --- 正規化設定 ---
+# development-plan.md 推奨: Z-score ではなく 0-1 反転方式を採用
+#   lidar_norm = 1.0 - clip(lidar, 0, MAX_RANGE) / MAX_RANGE
+#   → 近い壁 = 1.0, 遠い空間 = 0.0  (NaN/inf を安全にクリップ後に適用)
 NORMALIZE_OBSERVATIONS = True
-LIDAR_MEAN = 2.188             # 0.25°刻み1440本仕様での平均
-LIDAR_STD = 2.174              # 0.25°刻み1440本仕様での標準偏差
-LIDAR_RESIDUAL_MEAN = 0.0
-LIDAR_RESIDUAL_STD = 1.0
-VEHICLE_STATE_MEAN = np.array([0.284, -0.005])  # [vel, steer]
-VEHICLE_STATE_STD = np.array([0.187, 0.111])
+LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
+
+# --- CNN ポリシー設定 ---
+# True: Conv1DLidarExtractor + MlpPolicy, False: 従来の MlpPolicy (MLP のみ)
+USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.03  # EXP-32: 0.03 -> 0.01 (Resume時の探索を抜い、EXP-25の知識を活かす)
