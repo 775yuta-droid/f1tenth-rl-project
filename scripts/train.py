@@ -34,6 +34,12 @@ def main():
     parser.add_argument('--resume', type=str, default=None, help='継続学習元のモデルパス(拡張子なし)')
     args = parser.parse_args()
 
+    print(f"[DEVICE] 指定デバイス: {config.DEVICE}")
+    print(f"         CUDA 利用可能: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"         使用GPU: {torch.cuda.get_device_name(0)}")
+    print(f"[POLICY] USE_CNN_POLICY: {config.USE_CNN_POLICY}")
+
     if not os.path.exists(config.MODEL_DIR):
         os.makedirs(config.MODEL_DIR, exist_ok=True)
     if not os.path.exists(config.LOG_DIR):

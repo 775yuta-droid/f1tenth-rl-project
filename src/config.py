@@ -7,7 +7,7 @@ from .profiles import PROFILES
 
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
-DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
+DEVICE = "cuda"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習環境プロファイル ---
 # 環境変数 TRAINING_PROFILE で使用する設定セットを切り替えます。
@@ -47,7 +47,7 @@ LIDAR_BEAMS = 1440             # シミュレータの全周ビーム数 (360°�
 LIDAR_DOWNSAMPLE_FACTOR = 5   # EXP-39: 解像度を2倍に(10->5)
 FRAME_STACK = 4                # スタックするフレーム数
 FRAME_SKIP = 3                 # 間引き間隔 (40Hz時、Skip=3で0.25秒分をカバー)
-N_ENVS = 1                      # テストのため 1 に削減 (元は 8)
+N_ENVS = 8                     # テストのため 1 に削減 (元は 8)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
 INCLUDE_EXTRA_FEATURES = True  # 追加特徴 [front_dist, min_dist] を観測に含める
