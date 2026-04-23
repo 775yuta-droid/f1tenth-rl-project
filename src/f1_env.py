@@ -52,13 +52,23 @@ class F1TenthRL(gym.Env):
         self.env.params['length'] = config.CAR_LENGTH
         self.env.params['width'] = config.CAR_WIDTH
         
-        # 内部エージェントのパラメータも直接書き換え
+        # 内部エージェントのパラメータをより確実に反映
         if hasattr(self.env, 'sim') and len(self.env.sim.agents) > 0:
             agent = self.env.sim.agents[0]
-            agent.params['length'] = config.CAR_LENGTH
-            agent.params['width'] = config.CAR_WIDTH
-            agent.num_beams = new_num_beams # インスタンス側も更新
-            self.steer_limit = agent.params['s_max'] # 通常 0.4189 rad
+            agent.params.update({
+                'length': config.CAR_LENGTH,
+                'width': config.CAR_WIDTH
+            })
+            # 属性としても保持されている可能性があるため上書き
+            if hasattr(agent, 'length'): agent.length = config.CAR_LENGTH
+            if hasattr(agent, 'width'): agent.width = config.CAR_WIDTH
+            
+            agent.num_beams = new_num_beams
+            self.steer_limit = agent.params.get('s_max', 0.4189)
+            
+            # デバッグ用：実際に適用されているサイズを表示
+            print(f"[DEBUG] Sim Width: {agent.params['width']}")
+            print(f"[DEBUG] Sim Length: {agent.params['length']}")
         else:
             self.steer_limit = 0.4189
         
@@ -232,4 +242,5 @@ class F1TenthRL(gym.Env):
         reward_final = np.nan_to_num(float(reward), nan=-1.0)
         
         return processed_obs, reward_final, bool(done), info
+
 

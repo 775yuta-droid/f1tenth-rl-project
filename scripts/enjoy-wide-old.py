@@ -47,7 +47,6 @@ class MapRenderer:
         self.trail, = self.ax.plot([], [], color='#00aaff', alpha=0.5, linewidth=1, label='Trail')
         self.scans_scatter = self.ax.scatter([], [], s=1, c='#00ffff', alpha=0.3)
         self.car_dot, = self.ax.plot([], [], 'o', color='#ff0055', markersize=8, markeredgecolor='white', zorder=5)
-        self.corner_dots, = self.ax.plot([], [], 'o', color='white', markersize=3, zorder=7) # 物理的な角を表示
         self.car_arrow = None # 後で作成
         
         # 車両の外形（ポリゴン）
@@ -69,17 +68,7 @@ class MapRenderer:
         py = self.height - (y - self.origin[1]) / self.resolution
         return px, py
 
-    def break_trail(self):
-        """衝突時に軌跡を完全にリセットする"""
-        self.trail_x = []
-        self.trail_y = []
-        self.trail.set_data([], [])
-
-    def update(self, car_state, scans, action, reward, step, collisions, reset_trail=False):
-        """レンダリングを更新し、画像バッファを返す"""
-        if reset_trail:
-            self.break_trail()
-            
+    def update(self, car_state, scans, action, reward, step, collisions):
         car_x, car_y, car_theta, car_vel = car_state
         px, py = self.world_to_pixel(car_x, car_y)
 
@@ -123,10 +112,6 @@ class MapRenderer:
             rotated_corners.append([center_px + rx, center_py - ry])
         
         self.car_polygon.set_xy(rotated_corners)
-        
-        # 物理的な角（白い点）の描画
-        corner_array = np.array(rotated_corners)
-        self.corner_dots.set_data(corner_array[:, 0], corner_array[:, 1])
 
         # 向きの矢印
         if self.car_arrow:
@@ -138,22 +123,12 @@ class MapRenderer:
         dy = -arrow_len * np.sin(car_theta) # 画像座標系(y軸反転)
         self.car_arrow = self.ax.arrow(px, py, dx, dy, head_width=4, head_length=5, fc='#ff0055', ec='white', zorder=6)
 
-        # LiDAR点群の描画
-        num_scans = scans.shape[0]
-        # シミュレータの視野角 (4.7 rad = 約270度) に合わせる
-        # ※ f1_env.py の 41行目付近の設定と一致させる必要があります
-        fov_rad = 4.7 
-        angles = np.linspace(-fov_rad/2, fov_rad/2, num_scans) + car_theta
-        
+        # LiDAR点群
+        angles = np.linspace(-2.35, 2.35, 1080) + car_theta
         scan_x_world = car_x + scans * np.cos(angles)
         scan_y_world = car_y + scans * np.sin(angles)
         scan_px, scan_py = self.world_to_pixel(scan_x_world, scan_y_world)
-        
-        # 点のサイズ(s)を大きくし、alphaを上げて見やすくする
         self.scans_scatter.set_offsets(np.c_[scan_px, scan_py])
-        self.scans_scatter.set_sizes([4] * num_scans)
-        self.scans_scatter.set_alpha(0.8)
-        self.scans_scatter.set_color('#00ffff')
 
         # HUD
         info_str = (
@@ -213,20 +188,18 @@ def main():
         return
 
     # 描画クラスの初期化 (ユーザー希望の 0.465 x 0.19 を強制)
-    car_params = {'length': 0.58, 'width': 0.31}
+    car_params = {'length': 0.465, 'width': 0.19}
     renderer = MapRenderer(config.MAP_PATH, car_params=car_params)
 
     obs = env.reset()
     frames = []
     collisions = 0
     total_reward = 0
-    reset_flag = False
     
     print(f"--- シミュレーション開始 (最大 {args.steps} ステップ) ---")
     
     try:
         for i in range(args.steps):
-            # AIの予測を使用（VecEnv用なので [action] とリスト化して渡す）
             action, _ = model.predict(obs, deterministic=True)
             obs, rewards, dones, infos = env.step(action)
             
@@ -248,25 +221,21 @@ def main():
             except Exception as e:
                 car_state = (0, 0, 0, 0)
 
-            # 描画更新 (全ステップ描画して、衝突の瞬間を逃さないようにする)
-            if not args.no_render:
-                frame = renderer.update(car_state, raw_scan, action[0], reward, i, collisions, reset_trail=reset_flag)
+            # 描画更新 (2ステップに1回)
+            if i % 2 == 0 and not args.no_render:
+                # action[0] (現在のエージェントの操作) を渡す
+                frame = renderer.update(car_state, raw_scan, action[0], reward, i, collisions)
                 frames.append(frame)
-                reset_flag = False
+                
+                if (i // 2) % 50 == 0:
+                    print(f"レンダリング中... Step: {i}")
 
             if done:
                 collisions += 1
-                print(f"衝突判定！ Step: {i}")
-                
-                # 衝突の瞬間を目視できるように、同じフレームを15回（約0.5秒分）繰り返して保存
-                if not args.no_render:
-                    for _ in range(15):
-                        frames.append(frame)
-                
-                renderer.break_trail()
+                print(f"衝突！ Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f})")
                 obs = env.reset()
                 total_reward = 0
-                reset_flag = True
+                # 衝突時に軌跡をリセットするかどうかは好みだが、ここでは継続して描画する
 
     except KeyboardInterrupt:
         print("\n中断されました。")
