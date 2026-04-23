@@ -26,8 +26,8 @@ def main():
     # 環境の初期化
     env = F1TenthRL(config.MAP_PATH)
     env = DummyVecEnv([lambda: env])
-    # EXP_21: フレーム積層の適用
-    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
+    # EXP-38: フレーム積層は環境内部（f1_env.py）で処理するためラッパーは使用しない
+    # env = VecFrameStack(env, n_stack=config.FRAME_STACK)
     print(f"現在の観測空間の形状: {env.observation_space.shape}")
 
     # モデルの読み込み
