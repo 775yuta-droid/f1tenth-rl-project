@@ -119,12 +119,19 @@ def calculate_reward(
     right_side = np.min(s[90:270])    # 右方向 (-90°±45°帯)
     left_side  = np.min(s[540:720])   # 左方向 (+90°±45°帯)
 
-    # 4. 速度報酬 (EXP-25: 2.0m基準のシンプル補正 → EXP-39: 4.0mに拡大)
+    # 4. 速度報酬 (動的ブレーキ距離の導入)
     speed_factor = current_speed / cfg.max_speed
-    if front_dist < 4.0:           # 壁が目前: ブレーキ奨励 (EXP-39)
-        reward -= speed_factor * cfg.reward_speed_weight * 2.0
+    
+    # 速度が速いほど、遠くからブレーキをかける必要がある (1.5秒先の到達距離 + 余裕2.0m)
+    safe_brake_dist = current_speed * 1.5 + 2.0 
+
+    if front_dist < safe_brake_dist:
+        # 壁に近づくほど、速度を出していることへのペナルティを強める（滑らかな連続関数）
+        danger_ratio = 1.0 - (front_dist / safe_brake_dist)
+        reward -= speed_factor * cfg.reward_speed_weight * (2.0 + 3.0 * danger_ratio)
         progress_scale = 0.5
-    else:                          # 通常・直線: 加速推奨
+    else:
+        # 安全圏なら加速を推奨
         reward += speed_factor * cfg.reward_speed_weight
         progress_scale = 1.0
 
