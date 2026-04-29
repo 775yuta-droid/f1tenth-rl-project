@@ -132,8 +132,17 @@ def main():
         callback=checkpoint_callback
     )
     
-    model.save(args.model)
-    print(f"--- 完了: {args.model} ---")
+    # 保存パスの解決 (ディレクトリ指定がない場合は config.MODEL_DIR を使用)
+    if os.path.dirname(args.model) == '':
+        save_path = os.path.join(config.MODEL_DIR, args.model)
+    else:
+        save_path = args.model
+    
+    if not save_path.endswith(".zip"):
+        save_path += ".zip"
+
+    model.save(save_path)
+    print(f"--- 完了: {save_path} ---")
 
 
 if __name__ == '__main__':
