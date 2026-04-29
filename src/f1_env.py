@@ -136,14 +136,11 @@ class F1TenthRL(gym.Env):
         # ==========================================================
         lidar_norm = 1.0 - np.clip(downsampled, 0.0, config.LIDAR_MAX_RANGE) / config.LIDAR_MAX_RANGE
 
-        # 追加スカラー特徴の計算
         # ※ downsampled は 216点 (1080 / LIDAR_DOWNSAMPLE_FACTOR=5)
-        # rewards.py の 1080点スケールインデックスを ÷5 して変換:
-        #   Hokuyo帯域: [135:945] → [27:189]
-        #   前方±40°:  [285:525] → [57:105]
-        _ds = config.LIDAR_DOWNSAMPLE_FACTOR
-        _H = downsampled[135 // _ds : 945 // _ds]   # 162点: Hokuyo有効帯域
-        _front = _H[285 // _ds : 525 // _ds]         # 48点: 前方空間
+        # 1点 = 1.25° (270° / 216点)
+        # 中心(正面) = 108点
+        _H = downsampled                       # 全体が270°(Hokuyo有効帯域)
+        _front = _H[76:140]                    # 前方±40°: 108 ± (40/1.25) = 108 ± 32
         front_raw = float(np.min(_front)) if len(_front) > 0 else config.LIDAR_MAX_RANGE
         min_raw   = float(np.min(_H))     if len(_H) > 0   else config.LIDAR_MAX_RANGE
         # 0-1 スケーリング (近いほど大きな値)
