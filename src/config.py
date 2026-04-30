@@ -36,6 +36,8 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
 TOTAL_TIMESTEPS = 5000000
 LEARNING_RATE = 5e-5  # EXP-25 付近の標準的な学習率に戻す
+PPO_BATCH_SIZE = 512  # GPU効率化のため 64 -> 512
+PPO_N_STEPS = 2048    # 1環境あたり収集するデータ
 
 # --- ネットワーク構造 ---
 # 複雑な判断（加減速）をさせるため、階層を拡大 [64, 64] -> [128, 128] (EXP-07)
@@ -64,14 +66,15 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.03  # EXP-32: 0.03 -> 0.01 (Resume時の探索を抜い、EXP-25の知識を活かす)
+PPO_ENT_COEF = 0.01  # EXP-41: 0.03 -> 0.01 (std発散対策。探索より安定性を優先)
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
+ACTION_REPEAT = 4          # AIの行動をNステップ維持（4なら実質10Hzの推論頻度）
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
-MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.5"))
-MAX_SPEED = float(os.environ.get("MAX_SPEED", "3.5"))  # EXP-40: 3.5m/s
+MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.3"))   # EXP-25知見: 0.3m/sでコーナーブレーキ許可
+MAX_SPEED = float(os.environ.get("MAX_SPEED", "2.5"))   # EXP-25知見: 2.5m/sから段階的引き上げ。EXP-26〜29で高速 Fresh学習は全滅
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -81,8 +84,8 @@ CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻�
 REWARD_COLLISION = -100.0
 REWARD_SURVIVAL  = 0.2     # EXP-25: 0.2
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
-REWARD_SPEED_WEIGHT = 3.0   # EXP-40: 2.0 -> 3.0 (速度報酬の重みを強化)
-REWARD_SAFETY_WEIGHT = 0.8  # 壁との安全距離スコア報酬
+REWARD_SPEED_WEIGHT = 1.5   # EXP-41 Phase1: 3.0→1.5 (安全優先。完走確認後に2.0→3.0へ引き上げ)
+REWARD_SAFETY_WEIGHT = 1.5  # EXP-41 Phase1: 0.8→1.5 (壁への警戒を強化)
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
 REWARD_PROGRESS_WEIGHT = 4.0   # EXP-26: 2.0 -> 4.0 (走行距離報酬の重みを2倍にし、高速走破を奨励)
 

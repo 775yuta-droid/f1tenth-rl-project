@@ -16,15 +16,19 @@ from . import config
 
 @dataclass
 class RewardConfig:
-    """報酬計算に必要なハイパーパラメータをまとめた設定クラス。"""
-    reward_collision: float = -1000.0
-    reward_survival: float = 0.2       # EXP-25: 0.05 -> 0.2 (安定完走の鍵)
-    reward_front_weight: float = 3.0
-    reward_speed_weight: float = 1.0
-    reward_safety_weight: float = 0.8  # 旧 centrality_weight + distance_weight を統合
-    reward_distance_weight: float = 1.0   # 互換性のため残存
-    reward_progress_weight: float = 1.0
-    max_speed: float = 3.0             # EXP-30/31設定に合わせる
+    """報酬計算に必要なハイパーパラメータをまとめた設定クラス。
+
+    デフォルト値は config.py の REWARD_* 定数と完全に一致させる。
+    不一致があると単体テスト・デバッグ時に意図外の報酬計算が行われるリスクがある。
+    """
+    reward_collision: float = -100.0       # config.REWARD_COLLISION: -1000 は知見1(局所解の罠)と矛盾するため-100渡し
+    reward_survival: float = 0.2           # config.REWARD_SURVIVAL
+    reward_front_weight: float = 3.0       # config.REWARD_FRONT_WEIGHT
+    reward_speed_weight: float = 1.5       # config.REWARD_SPEED_WEIGHT: Phase1安全優先値(3.0→完走確認後に引き上げ)
+    reward_safety_weight: float = 1.5      # config.REWARD_SAFETY_WEIGHT (旧 centrality_weight + distance_weight を統合)
+    reward_distance_weight: float = 1.0    # 互換性のため残存
+    reward_progress_weight: float = 1.0    # config.REWARD_PROGRESS_WEIGHT
+    max_speed: float = 2.5                 # config.MAX_SPEED: EXP-25知見に従い 2.5m/s
 
 
 def _load_default_config() -> RewardConfig:

@@ -79,7 +79,9 @@ def main():
             tensorboard_log=config.LOG_DIR,
             custom_objects={
                 "ent_coef": config.PPO_ENT_COEF,
-                "learning_rate": config.LEARNING_RATE
+                "learning_rate": config.LEARNING_RATE,
+                "batch_size": config.PPO_BATCH_SIZE,
+                "n_steps": config.PPO_N_STEPS
             }
         )
     else:
@@ -116,6 +118,8 @@ def main():
             "MlpPolicy",
             env,
             learning_rate=config.LEARNING_RATE,
+            n_steps=config.PPO_N_STEPS,
+            batch_size=config.PPO_BATCH_SIZE,
             ent_coef=config.PPO_ENT_COEF,
             policy_kwargs=policy_kwargs,
             verbose=1,

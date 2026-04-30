@@ -214,7 +214,7 @@ class F1TenthRL(gym.Env):
 
     def step(self, action):
         """
-        1ステップ実行
+        1ステップ実行 (Action Repeat 導入版)
         """
         # アクションのスケーリング
         # steer: [-1, 1] -> [-max_steer, max_steer] (ラジアン)
@@ -222,32 +222,44 @@ class F1TenthRL(gym.Env):
         # speed: [-1, 1] -> [MIN_SPEED, MAX_SPEED]
         speed = config.MIN_SPEED + (float(action[1]) + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
         
-        # シミュレーション実行
-        obs, _, done, info = self.env.step(np.array([[steer, speed]]))
-        raw_scans = obs['scans'][0]
+        total_reward = 0.0
+        done = False
+        info = {}
+        clean_scans = None
 
-        # LiDAR異常値のクリーニング (報酬計算・観測の両方で共有)
-        clean_scans = np.nan_to_num(raw_scans, nan=30.0, posinf=30.0, neginf=0.0)
-        clean_scans = np.clip(clean_scans, 0.0, 30.0)
+        # --- Action Repeat ループ ---
+        # AIの1回の判断を複数ステップ継続させることで、推論負荷を下げ学習を高速化する
+        for _ in range(config.ACTION_REPEAT):
+            obs, _, done, info = self.env.step(np.array([[steer, speed]]))
+            raw_scans = obs['scans'][0]
 
-        # 現在位置を取得
-        state = self.env.sim.agents[0].state
-        cur_x, cur_y = state[0], state[1]
+            # LiDAR異常値のクリーニング
+            clean_scans = np.nan_to_num(raw_scans, nan=30.0, posinf=30.0, neginf=0.0)
+            clean_scans = np.clip(clean_scans, 0.0, 30.0)
 
-        # 報酬計算
-        if info is None:
-            info = {}
-        info['raw_scan'] = clean_scans
-        reward = calculate_reward(clean_scans, action, done, speed, self.prev_x, self.prev_y, cur_x, cur_y)
+            # 現在位置を取得
+            state = self.env.sim.agents[0].state
+            cur_x, cur_y = state[0], state[1]
 
-        # 前位置を更新
-        self.prev_x = cur_x
-        self.prev_y = cur_y
+            # 報酬計算 (毎サブステップ計算し累積)
+            if info is None:
+                info = {}
+            info['raw_scan'] = clean_scans
+            step_reward = calculate_reward(clean_scans, action, done, speed, self.prev_x, self.prev_y, cur_x, cur_y)
+            total_reward += step_reward
 
+            # 前位置を更新
+            self.prev_x = cur_x
+            self.prev_y = cur_y
+
+            if done:
+                break
+
+        # 最終ステップの観測を加工して返す
         processed_obs = self._get_obs(clean_scans)
 
         # 最終出力のNaNチェック (保険)
-        reward_final = np.nan_to_num(float(reward), nan=-1.0)
+        reward_final = np.nan_to_num(float(total_reward), nan=-1.0)
         
         return processed_obs, reward_final, bool(done), info
 

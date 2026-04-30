@@ -6,12 +6,14 @@ development-plan.md の「■ 改善案：Conv1D」に基づき実装。
 LiDAR データの空間構造（壁・コーナーの連続性）を活用するため、
 MLP の前段に 1次元畳み込みブロックを挿入する。
 
-観測ベクトルの構造:
-    [lidar_t0 | lidar_t1 | lidar_t2 | lidar_t3 | vehicle_state×4 | extra_feats×4]
-                (FRAME_STACK 分の lidar が先頭に並ぶ)
+【観測ベクトルの実際のレイアウト (f1_env.py が生成する順序)】
+    frame 0 (最新) : [lidar(lidar_size) | vehicle_state(extra_size)]
+    frame 1 (1つ前): [lidar(lidar_size) | vehicle_state(extra_size)]
+    frame 2 (2つ前): [lidar(lidar_size) | vehicle_state(extra_size)]
+    frame 3 (最古) : [lidar(lidar_size) | vehicle_state(extra_size)]
 
-Conv1D ブロックでは各フレームの LiDAR を (channels=FRAME_STACK, length=lidar_size)
-のテンソルとして扱い、空間的局所パターンを抽出する。
+obs_buffer は最新フレームが先頭 (逆順) で stacked_obs に連結される。
+forward() では flip して「最古→最新」の正しい時間順序に直してから Conv1D へ渡す。
 """
 
 import torch
@@ -96,6 +98,10 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         """
         observations: (batch, total_obs_size)
             total_obs_size = (lidar_size + extra_size) * frame_stack
+
+        f1_env.py の obs_buffer は「最新フレームが先頭」の逆順で連結される。
+        Conv1D が時間方向のパターン（壁の接近など）を正しく学習できるよう、
+        ここで flip して「最古フレーム → 最新フレーム」の順に並び替える。
         """
         batch = observations.shape[0]
 
@@ -103,14 +109,19 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         per_frame = self.lidar_size + self.extra_size
 
         # ---- フレーム別に split ----
-        # 観測は [frame_t0, frame_t1, frame_t2, frame_t3] の順に連結されている想定
+        # 観測: [frame_newest | frame_1ago | frame_2ago | frame_oldest]
+        # → (B, frame_stack, per_frame) に reshape
         frames = observations.view(batch, self.frame_stack, per_frame)  # (B, F, per_frame)
+
+        # 時間軸を反転: [newest, 1ago, 2ago, oldest] → [oldest, 2ago, 1ago, newest]
+        # これにより Conv1D の「チャンネル軸=時間軸」が正しい順序になる
+        frames = torch.flip(frames, dims=[1])                           # (B, F, per_frame)
 
         lidar_frames = frames[:, :, : self.lidar_size]      # (B, F, lidar_size)
         extra_frames = frames[:, :, self.lidar_size :]      # (B, F, extra_size)
 
         # ---- Conv1D ----
-        # (B, F, L) → Conv1d expects (B, C, L): C=frame_stack として扱う
+        # (B, F, L) → Conv1d expects (B, C, L): C=frame_stack (時間チャンネル) として扱う
         conv_out = self.conv_block(lidar_frames)             # (B, 64, L/4)
         lidar_feat = self.lidar_fc(conv_out)                 # (B, 128)
 
