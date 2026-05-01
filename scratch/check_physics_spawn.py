@@ -1,40 +1,45 @@
-import sys
-import os
-import numpy as np
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import gym
+import numpy as np
+import os
+import sys
+
+# Add project root to path
+PROJECT_ROOT = "/home/yuta775/projects/f1tenth-rl-project"
 sys.path.append(PROJECT_ROOT)
 
 from src import config
-from src.f1_env import F1TenthRL
 
-# 環境初期化
-env = F1TenthRL(config.MAP_PATH)
+def test_spawn_safety():
+    map_path = "/home/yuta775/projects/f1tenth-rl-project/my_maps/testmap-tamoku/map-tamoku"
+    
+    # Simple gym make to avoid our wrapper's complexity first
+    env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1, timestep=config.SIM_TIMESTEP)
+    
+    # Apply car dimensions
+    env.params['length'] = config.CAR_LENGTH
+    env.params['width'] = config.CAR_WIDTH
+    
+    poses = config.START_POSES
+    
+    for i, base_pose in enumerate(poses):
+        collisions = 0
+        trials = 100
+        print(f"\nTesting Spawn #{i}: {base_pose}")
+        
+        for _ in range(trials):
+            sx, sy, syaw = base_pose
+            sx += np.random.uniform(-0.1, 0.1)
+            sy += np.random.uniform(-0.1, 0.1)
+            syaw += np.random.uniform(-0.01, 0.01)
+            
+            obs, _, done, info = env.reset(np.array([[sx, sy, syaw]]))
+            
+            # Check collision from info or obs
+            if done or obs['collisions'][0] > 0:
+                collisions += 1
+        
+        print(f"  Collision Rate: {collisions}/{trials} ({collisions/trials*100:.1f}%)")
 
-poses = [
-    [4.2, -0.2, 3.2],
-    [-1.8, -0.1, 3.1],
-    [7.5, -3.5, 0.0],
-    [-2.2, -3.5, 0.0],
-]
-
-print("--- 物理エンジンによる初期位置のLiDARスキャン確認 ---")
-for i, pose in enumerate(poses):
-    config.START_POSE_RANDOMIZE = False
-    config.START_POSE = pose
-    obs = env.reset()
-    
-    # f1_env.reset() から生のlidar(1440点)を取得する方法はないので、
-    # 最初のstepを踏まずに、infoから生scanを取得するか、シミュレータに直接アクセス
-    sim_obs, _, _, _ = env.env.step(np.array([[0.0, 0.0]]))
-    raw_scans = sim_obs['scans'][0]
-    
-    min_dist = np.min(raw_scans)
-    front_dist = raw_scans[720] # 正面
-    
-    print(f"Pose #{i} {pose}: 最小距離={min_dist:.3f}m, 正面距離={front_dist:.3f}m")
-    
-    if min_dist < 0.2: # 車の幅が0.19なので中心から0.095。余裕を見て0.2以下ならほぼ激突
-        print("  -> [警告] 壁に激突しているか、非常に近いです！")
-
-env.close()
+if __name__ == "__main__":
+    test_spawn_safety()

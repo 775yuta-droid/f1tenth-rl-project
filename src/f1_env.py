@@ -46,19 +46,35 @@ class F1TenthRL(gym.Env):
         RaceCar.scan_simulator.set_map(base_env.map_path, base_env.map_ext)
         RaceCar.cosines = np.cos(np.linspace(-fov/2., fov/2., new_num_beams))
         RaceCar.scan_angles = np.linspace(-fov/2., fov/2., new_num_beams)
-        RaceCar.side_distances = np.ones(new_num_beams)
+        
+        # side_distances を正しく計算 (車体端までの距離を考慮し、TTC衝突判定を適正化)
+        dist_sides = config.CAR_WIDTH / 2.
+        dist_fr = config.CAR_LENGTH / 2.
+        RaceCar.side_distances = np.zeros(new_num_beams)
+        for i in range(new_num_beams):
+            angle = RaceCar.scan_angles[i]
+            if abs(angle) < 1e-6: # 真前
+                RaceCar.side_distances[i] = dist_fr
+            else:
+                # 矩形車体の境界までの距離を計算 (minプーリング)
+                to_side = dist_sides / abs(np.sin(angle))
+                to_fr = dist_fr / abs(np.cos(angle))
+                RaceCar.side_distances[i] = min(to_side, to_fr)
 
         # マシン寸法の適用（config.py の値を物理エンジンに強制）
         self.env.params['length'] = config.CAR_LENGTH
         self.env.params['width'] = config.CAR_WIDTH
         
-        # 内部エージェントのパラメータも直接書き換え
-        if hasattr(self.env, 'sim') and len(self.env.sim.agents) > 0:
-            agent = self.env.sim.agents[0]
-            agent.params['length'] = config.CAR_LENGTH
-            agent.params['width'] = config.CAR_WIDTH
-            agent.num_beams = new_num_beams # インスタンス側も更新
-            self.steer_limit = agent.params['s_max'] # 通常 0.4189 rad
+        # 内部シミュレータとエージェントのパラメータも同期 (幾何学的衝突判定に必須)
+        if hasattr(self.env, 'sim'):
+            self.env.sim.params['length'] = config.CAR_LENGTH
+            self.env.sim.params['width'] = config.CAR_WIDTH
+            for agent in self.env.sim.agents:
+                agent.params['length'] = config.CAR_LENGTH
+                agent.params['width'] = config.CAR_WIDTH
+                agent.num_beams = new_num_beams # インスタンス側も更新
+            
+            self.steer_limit = self.env.sim.agents[0].params['s_max']
         else:
             self.steer_limit = 0.4189
         
@@ -194,11 +210,9 @@ class F1TenthRL(gym.Env):
         sx, sy, syaw = pose
         
         # EXP-19: スタート位置にノイズを付加 (丸暗記防止)
-        # yawノイズ ±0.05→±0.01 rad に縮小:
-        # yaw≈195°/143° など急角度スポーンで大きなyawノイズを加えると
-        # 車体(0.465×0.19m)が壁にめり込んでStep=1で即死する。
-        sx += np.random.uniform(-0.1, 0.1)
-        sy += np.random.uniform(-0.1, 0.1)
+        # 狭路マップ (tamoku) での即死を避けるため、ノイズを ±0.1m -> ±0.02m へ縮小
+        sx += np.random.uniform(-0.02, 0.02)
+        sy += np.random.uniform(-0.02, 0.02)
         syaw += np.random.uniform(-0.01, 0.01)
         
         initial_poses = np.array([[sx, sy, syaw]])
@@ -231,7 +245,7 @@ class F1TenthRL(gym.Env):
         clean_scans = None
 
         # --- Action Repeat ループ ---
-        # AIの1回の判断を複数ステップ継続させることで、推論負荷を下げ学習を高速化する
+        # AIの1回の判断を複数ステップ継続させる
         for _ in range(config.ACTION_REPEAT):
             obs, _, done, info = self.env.step(np.array([[steer, speed]]))
             raw_scans = obs['scans'][0]
@@ -239,6 +253,11 @@ class F1TenthRL(gym.Env):
             # LiDAR異常値のクリーニング
             clean_scans = np.nan_to_num(raw_scans, nan=30.0, posinf=30.0, neginf=0.0)
             clean_scans = np.clip(clean_scans, 0.0, 30.0)
+
+            # --- EXP-43: サブステップごとに観測バッファを更新 ---
+            # これにより FRAME_STACK が「直近の微細な動き」を保持できるようになり、
+            # CNNが速度や壁の接近をより正確に抽出可能になる。
+            processed_obs = self._get_obs(clean_scans)
 
             # 現在位置を取得
             state = self.env.sim.agents[0].state
@@ -258,10 +277,7 @@ class F1TenthRL(gym.Env):
             if done:
                 break
 
-        # 最終ステップの観測を加工して返す
-        processed_obs = self._get_obs(clean_scans)
-
-        # 最終出力のNaNチェック (保険)
+        # 最終サブステップでの加工済み観測（あるいはループ内最後の更新値）を返す
         reward_final = np.nan_to_num(float(total_reward), nan=-1.0)
         
         return processed_obs, reward_final, bool(done), info

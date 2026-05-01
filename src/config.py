@@ -63,7 +63,7 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 
 # --- CNN ポリシー設定 ---
 # True: Conv1DLidarExtractor + MlpPolicy, False: 従来の MlpPolicy (MLP のみ)
-USE_CNN_POLICY = False
+USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.01  # EXP-41: 0.03 -> 0.01 (std発散対策。探索より安定性を優先)

@@ -1,36 +1,36 @@
-import cv2
-import numpy as np
+
 import yaml
+import numpy as np
+from PIL import Image
+import os
 
-map_path = '/workspace/my_maps/testmap-tamoku/map-tamoku.pgm'
-yaml_path = '/workspace/my_maps/testmap-tamoku/map-tamoku.yaml'
+def check_map_values():
+    map_yaml = "/home/yuta775/projects/f1tenth-rl-project/my_maps/testmap-tamoku/map-tamoku.yaml"
+    with open(map_yaml, 'r') as f:
+        map_conf = yaml.safe_load(f)
 
-with open(yaml_path, 'r') as f:
-    config = yaml.safe_load(f)
+    origin = map_conf['origin']
+    resolution = map_conf['resolution']
+    img_name = map_conf['image']
+    img_path = os.path.join(os.path.dirname(map_yaml), img_name)
 
-img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
-height, width = img.shape
-origin = config['origin']
-resolution = config['resolution']
+    img = Image.open(img_path)
+    map_img = np.array(img)
+    height, width = map_img.shape
 
-def get_pixel(x, y):
-    px = int((x - origin[0]) / resolution)
-    py_unflipped = int((y - origin[1]) / resolution)
-    py_flipped = height - py_unflipped
-    
-    val_unflipped = img[py_unflipped, px] if 0 <= py_unflipped < height and 0 <= px < width else -1
-    val_flipped = img[py_flipped, px] if 0 <= py_flipped < height and 0 <= px < width else -1
-    
-    return px, py_unflipped, val_unflipped, py_flipped, val_flipped
+    poses = [
+        [-3, -3.5],
+        [7, -3.7],
+    ]
 
-points = [
-    [7.595, -3.576], # Where it crashed
-    [7.5, -3.5],     # Spawn point
-    [-2.2, -3.5],    # Another spawn point
-]
+    for x, y in poses:
+        px = int((x - origin[0]) / resolution)
+        py = int(height - (y - origin[1]) / resolution)
+        print(f"\nPose ({x}, {y}) -> Pixel ({px}, {py})")
+        
+        # Check 10x10 area
+        patch = map_img[py-5:py+5, px-5:px+5]
+        print(patch)
 
-for p in points:
-    px, py1, v1, py2, v2 = get_pixel(p[0], p[1])
-    print(f"World ({p[0]}, {p[1]}):")
-    print(f"  Unflipped Pixel ({px}, {py1}) -> Value={v1}")
-    print(f"  Flipped Pixel ({px}, {py2}) -> Value={v2}")
+if __name__ == "__main__":
+    check_map_values()
