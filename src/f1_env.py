@@ -194,9 +194,12 @@ class F1TenthRL(gym.Env):
         sx, sy, syaw = pose
         
         # EXP-19: スタート位置にノイズを付加 (丸暗記防止)
+        # yawノイズ ±0.05→±0.01 rad に縮小:
+        # yaw≈195°/143° など急角度スポーンで大きなyawノイズを加えると
+        # 車体(0.465×0.19m)が壁にめり込んでStep=1で即死する。
         sx += np.random.uniform(-0.1, 0.1)
         sy += np.random.uniform(-0.1, 0.1)
-        syaw += np.random.uniform(-0.05, 0.05)
+        syaw += np.random.uniform(-0.01, 0.01)
         
         initial_poses = np.array([[sx, sy, syaw]])
 

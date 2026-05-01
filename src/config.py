@@ -63,14 +63,16 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 
 # --- CNN ポリシー設定 ---
 # True: Conv1DLidarExtractor + MlpPolicy, False: 従来の MlpPolicy (MLP のみ)
-USE_CNN_POLICY = True
+USE_CNN_POLICY = False
 
 # --- PPO 探索設定 ---
 PPO_ENT_COEF = 0.01  # EXP-41: 0.03 -> 0.01 (std発散対策。探索より安定性を優先)
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
-ACTION_REPEAT = 4          # AIの行動をNステップ維持（4なら実質10Hzの推論頻度）
+ACTION_REPEAT = 1          # 警告: ACTION_REPEAT > 1 の場合、_get_obs は最終サブステップの1回のみ呼ばれるため、
+                           # obs_bufferに記録されるのは「最後の状態」のみ。FRAME_STACKが同一フレームのコピーになり時系列情報が失われる。
+                           # 現在は ACTION_REPEAT=1 のためループは1回のみ実行される。サブステップ毎に呼ぶ修正が必需。
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
 MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.3"))   # EXP-25知見: 0.3m/sでコーナーブレーキ許可
@@ -85,7 +87,7 @@ REWARD_COLLISION = -100.0
 REWARD_SURVIVAL  = 0.2     # EXP-25: 0.2
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.5   # EXP-41 Phase1: 3.0→1.5 (安全優先。完走確認後に2.0→3.0へ引き上げ)
-REWARD_SAFETY_WEIGHT = 1.5  # EXP-41 Phase1: 0.8→1.5 (壁への警戒を強化)
+REWARD_SAFETY_WEIGHT = 0.8  # EXP-08知見: 1.5は「安全を求めすぎて逃げ場を失い逐に衝突」を引き起こすため 0.8 に戻す
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
 REWARD_PROGRESS_WEIGHT = 4.0   # EXP-26: 2.0 -> 4.0 (走行距離報酬の重みを2倍にし、高速走破を奨励)
 
@@ -110,15 +112,15 @@ LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [2, -2.17, 0.0]
+START_POSE = [-3, -3.5, 0.0]
 
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [-3, -3.5, 0.0],     # コース中央 (壁まで 2.75 m)
-    [7, -3.7, 0.3],     # コース中央 (壁まで 2.75 m)
-    [-2.5, -0.1, 3.4],     # コース中央 (壁まで 2.75 m)
-    [8.8, -0.8, 2.5],     # コース中央 (壁まで 2.67 m)
+    [-3, -3.5, 0.0],     # ✅ 安全 (yaw=0.0: 東向き)
+    [7, -3.7, 0.3],      # ✅ 安全 (yaw=0.3: 東南向き)
+    # [-2.5, -0.1, 3.4], # ⚠️ 除外中 (yaw≈3.4rad≈195°: 地圖塩角度、位置ノイズ±0.1mで車体が壁と干渉り即死のリスク)
+    # [8.8, -0.8, 2.5],  # ⚠️ 除外中 (yaw≈2.5rad≈143°: 同上。EXP-24/25で「悪いスポーン」と特定)
 ]
 
 # モデル名に設定を反映させて管理しやすくする

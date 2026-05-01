@@ -25,7 +25,7 @@ class RewardConfig:
     reward_survival: float = 0.2           # config.REWARD_SURVIVAL
     reward_front_weight: float = 3.0       # config.REWARD_FRONT_WEIGHT
     reward_speed_weight: float = 1.5       # config.REWARD_SPEED_WEIGHT: Phase1安全優先値(3.0→完走確認後に引き上げ)
-    reward_safety_weight: float = 1.5      # config.REWARD_SAFETY_WEIGHT (旧 centrality_weight + distance_weight を統合)
+    reward_safety_weight: float = 0.8       # config.REWARD_SAFETY_WEIGHT: EXP-08で1.5は失敗確認済み
     reward_distance_weight: float = 1.0    # 互換性のため残存
     reward_progress_weight: float = 1.0    # config.REWARD_PROGRESS_WEIGHT
     max_speed: float = 2.5                 # config.MAX_SPEED: EXP-25知見に従い 2.5m/s
