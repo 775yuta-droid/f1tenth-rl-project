@@ -44,9 +44,13 @@ graph TD
 
 Dockerを使用することで、GPU環境を含めたセットアップが最短3分で完了します。
 
+
 ### 1. 環境の起動
 ```bash
-# イメージのビルドとコンテナの起動
+# イメージのビルド(初回のみ)
+docker compose build
+
+# コンテナの起動
 docker compose up -d
 
 # コンテナ内に入る
@@ -56,13 +60,13 @@ docker compose exec f1-sim-latest bash
 ### 2. 学習の実行 (最新のCNNモデル例)
 ```bash
 # 実験用スクリプトの実行
-bash scripts/experiments/run_exp40.sh
+python3 scripts/train.py --model model_name --steps 5000000
 ```
 
 ### 3. 進捗確認
 別のターミナルで TensorBoard を起動し、ブラウザで `localhost:6006` を開いてください。
 ```bash
-tensorboard --logdir logs --host 0.0.0.0
+tensorboard --logdir logs --host localhost
 ```
 
 ---
