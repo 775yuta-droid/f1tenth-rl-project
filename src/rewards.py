@@ -96,32 +96,14 @@ def calculate_reward(
     front_dist = np.min(s[380:700])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 斜め前方 (±40°〜±80°) の左右個別検出 — カーブ入口シグナル
-    #    右斜め前: -80°〜-40°  → s[220:380]  (-80°=(−80+135)*4=220)
-    #    左斜め前: +40°〜+80°  → s[700:860]  (+80°=(80+135)*4=860)
+    # 2. 斜め前方左右の最小距離（センターライン計算の補助用）
+    #    右斜め前: -80°〜-40°  → s[220:380]
+    #    左斜め前: +40°〜+80°  → s[700:860]
     diag_right = np.min(s[220:380])
     diag_left  = np.min(s[700:860])
-    diag_total = diag_left + diag_right + 1e-6
-
-    # 前方が開いているのに斜め左右に大きな差 = カーブ入口に差し掛かっている
-    # 正しいカーブ方向に操舵していればボーナス、していなければペナルティ
-    if front_dist > 5.0: # EXP-44: 3.0 -> 5.0 (十分な空間がある時のみ。広い直線での誤作動防止)
-        # 非対称性の計算を少し鈍感にする (+0.5)
-        diag_asymmetry = abs(diag_left - diag_right) / (diag_total + 0.5)
-        
-        # F1Tenth Gym 符号規約:
-        #   steer > 0 = 左回転,  steer < 0 = 右回転
-        #   左カーブ → 左diagが短い → diag_right > diag_left → curve_dir = +1
-        curve_dir = np.sign(diag_right - diag_left)
-        steer = action[0]
-        steer_alignment = steer * curve_dir  # 正 = カーブ方向に操舵中
-
-        if steer_alignment > 0:
-            # カーブ方向に既に操舵 → ボーナス (重みを 1.0 -> 0.5 へ下げ、壁吸い込みを抑制)
-            reward += diag_asymmetry * steer_alignment * 0.5
-        else:
-            # カーブ入口で直進 or 逆操舵 → ペナルティ
-            reward -= diag_asymmetry * 1.0 # 1.5 -> 1.0
+    # ※ EXP-45: カーブ報酬ブロックを完全削除。
+    # 「左右の空間差 → 壁へ吸い込む」正のフィードバックループを物理的に除去。
+    # まず「真っ直ぐ走れる」を完全定着させた後、再導入を検討する。
 
     # 3. 側面壁距離の取得 (センターライン計算用)
     #    右方向: -135°〜-45°  → s[0:360]    (-45°=(−45+135)*4=360)
@@ -150,10 +132,10 @@ def calculate_reward(
     safety_score = np.clip(wall_dist / 2.0, 0.0, 1.0)
     reward += (safety_score - 0.5) * cfg.reward_safety_weight
 
-    # 6. センターライン維持 (EXP-25: 二乗なしの比率ペナルティ)
+    # 6. センターライン維持 (EXP-45: 係数を 4.0 -> 3.0 に緩和。生存報酬が相対的に強くなるようバランス調整)
     total_width  = left_side + right_side
     center_ratio = abs(left_side - right_side) / (total_width + 1e-6)
-    center_penalty = -center_ratio * 4.0  # EXP-25: シンプルなペナルティ
+    center_penalty = -center_ratio * 3.0
     reward += center_penalty
 
     # 7. 走行距離報酬
@@ -163,7 +145,7 @@ def calculate_reward(
     # 8. ステアリング安定性 (EXP-38: カーブでの積極的操舵を妨げないよう軽減)
     reward += (1.0 - abs(action[0])) * 0.1  # 0.3 -> 0.1
 
-    # 9. 生存報酬
+    # 9. 生存報酬 (EXP-45: config.REWARD_SURVIVALを0.5に引き上げ。「生きている間は必ず正の基礎報酬」を保証)
     reward += cfg.reward_survival
 
     return reward

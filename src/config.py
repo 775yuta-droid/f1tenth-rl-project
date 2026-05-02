@@ -66,7 +66,7 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.03  # EXP-44: 0.01 -> 0.03 (悪い癖を忘れさせ、探索を再強化)
+PPO_ENT_COEF = 0.03  # EXP-44: 0.01 -> 0.03 (悪い癖を忘れさせ、探索を再強化。バグ修正済みのため発散リスク低)
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
@@ -82,12 +82,12 @@ CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻�
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -100.0
-REWARD_SURVIVAL  = 0.2     # EXP-25: 0.2
+REWARD_SURVIVAL  = 0.5     # EXP-45: 0.2 -> 0.5 (「生きている間は必ず正の基礎報酬」を保証。特攻局所解を防ぐ)
 REWARD_FRONT_WEIGHT = 3.0   # 前方の空きスペースに対する報酬の重み
 REWARD_SPEED_WEIGHT = 1.5   # EXP-41 Phase1: 3.0→1.5 (安全優先。完走確認後に2.0→3.0へ引き上げ)
 REWARD_SAFETY_WEIGHT = 0.8  # EXP-08知見: 1.5は「安全を求めすぎて逃げ場を失い逐に衝突」を引き起こすため 0.8 に戻す
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
-REWARD_PROGRESS_WEIGHT = 4.0   # EXP-26: 2.0 -> 4.0 (走行距離報酬の重みを2倍にし、高速走破を奨励)
+REWARD_PROGRESS_WEIGHT = 1.0   # EXP-45: 4.0 -> 1.0 (ACTION_REPEAT=4と積み合わさると実質16倍の爆発を招いた。生存優先に戻す)
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。
