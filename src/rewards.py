@@ -105,24 +105,23 @@ def calculate_reward(
 
     # 前方が開いているのに斜め左右に大きな差 = カーブ入口に差し掛かっている
     # 正しいカーブ方向に操舵していればボーナス、していなければペナルティ
-    if front_dist > 3.0:
-        diag_asymmetry = abs(diag_left - diag_right) / diag_total
+    if front_dist > 5.0: # EXP-44: 3.0 -> 5.0 (十分な空間がある時のみ。広い直線での誤作動防止)
+        # 非対称性の計算を少し鈍感にする (+0.5)
+        diag_asymmetry = abs(diag_left - diag_right) / (diag_total + 0.5)
+        
         # F1Tenth Gym 符号規約:
         #   steer > 0 = 左回転,  steer < 0 = 右回転
         #   左カーブ → 左diagが短い → diag_right > diag_left → curve_dir = +1
-        #   右カーブ → 右diagが短い → diag_right < diag_left → curve_dir = -1
-        # ※ 旧コード: np.sign(diag_left - diag_right) は符号が逆で
-        #   「正しく曲がるたびにペナルティ、外壁に向かうとボーナス」になっていた。
-        curve_dir = np.sign(diag_right - diag_left)  # BUG FIX: diag_left→diag_right の差
+        curve_dir = np.sign(diag_right - diag_left)
         steer = action[0]
         steer_alignment = steer * curve_dir  # 正 = カーブ方向に操舵中
 
         if steer_alignment > 0:
-            # カーブ方向に既に操舵 → ボーナス
-            reward += diag_asymmetry * steer_alignment * 1.0
+            # カーブ方向に既に操舵 → ボーナス (重みを 1.0 -> 0.5 へ下げ、壁吸い込みを抑制)
+            reward += diag_asymmetry * steer_alignment * 0.5
         else:
             # カーブ入口で直進 or 逆操舵 → ペナルティ
-            reward -= diag_asymmetry * 1.5
+            reward -= diag_asymmetry * 1.0 # 1.5 -> 1.0
 
     # 3. 側面壁距離の取得 (センターライン計算用)
     #    右方向: -135°〜-45°  → s[0:360]    (-45°=(−45+135)*4=360)

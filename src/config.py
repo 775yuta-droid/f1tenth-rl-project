@@ -48,7 +48,7 @@ LIDAR_BEAMS = 1440             # シミュレータの全周ビーム数 (360°�
 # 270°分を1080点とするため、360°では 1080 * 360 / 270 = 1440点 となる (0.25°刻み)
 LIDAR_DOWNSAMPLE_FACTOR = 5   # EXP-39: 解像度を2倍に(10->5)
 FRAME_STACK = 4                # スタックするフレーム数
-FRAME_SKIP = 1                 # 切り分けテスト: 間引きなし (exp40相当に戻す)
+FRAME_SKIP = 4                 # EXP-44: 1 -> 4 (視野を 0.1s -> 0.4s に拡大し、CNNが動きを捉えやすくする)
 N_ENVS = 8                     # テストのため 1 に削減 (元は 8)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
@@ -66,13 +66,11 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.01  # EXP-41: 0.03 -> 0.01 (std発散対策。探索より安定性を優先)
+PPO_ENT_COEF = 0.03  # EXP-44: 0.01 -> 0.03 (悪い癖を忘れさせ、探索を再強化)
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
-ACTION_REPEAT = 1          # 警告: ACTION_REPEAT > 1 の場合、_get_obs は最終サブステップの1回のみ呼ばれるため、
-                           # obs_bufferに記録されるのは「最後の状態」のみ。FRAME_STACKが同一フレームのコピーになり時系列情報が失われる。
-                           # 現在は ACTION_REPEAT=1 のためループは1回のみ実行される。サブステップ毎に呼ぶ修正が必需。
+ACTION_REPEAT = 4          # EXP-44: 1 -> 4 (10Hz制御に落とし、低速時の挙動を安定化)
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
 MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.3"))   # EXP-25知見: 0.3m/sでコーナーブレーキ許可
