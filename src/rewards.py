@@ -96,18 +96,20 @@ def calculate_reward(
     front_dist = np.min(s[380:700])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. 斜め前方左右の最小距離（センターライン計算の補助用）
-    #    右斜め前: -80°〜-40°  → s[220:380]
-    #    左斜め前: +40°〜+80°  → s[700:860]
-    diag_right = np.min(s[220:380])
-    diag_left  = np.min(s[700:860])
-    # ※ EXP-45: カーブ報酬ブロックを完全削除。
-    # 「左右の空間差 → 壁へ吸い込む」正のフィードバックループを物理的に除去。
-    # まず「真っ直ぐ走れる」を完全定着させた後、再導入を検討する。
+    # 2. Follow the Gap 報酬 (EXP-46: 最も開いている方向へハンドルを切る動機付け)
+    gap_idx = np.argmax(s) # 1080点の中で最も遠い方向
+    gap_angle_deg = (gap_idx / 1080.0 * 270.0) - 135.0
+    gap_angle_norm = gap_angle_deg / 135.0 # [-1, 1]
+    
+    steer = action[0] # 正=左, 負=右
+    # gap_angle_norm > 0 (左に隙間) かつ steer > 0 (左操舵) なら正
+    gap_alignment = steer * gap_angle_norm
 
+    if abs(gap_angle_deg) > 15.0: # 真正面以外に隙間がある場合
+        # 隙間に向かっていればボーナス (最大 0.5)
+        reward += np.clip(gap_alignment, 0.0, 0.5)
+    
     # 3. 側面壁距離の取得 (センターライン計算用)
-    #    右方向: -135°〜-45°  → s[0:360]    (-45°=(−45+135)*4=360)
-    #    左方向: +45°〜+135°  → s[720:1080] (+45°=(45+135)*4=720)
     right_side = np.min(s[0:360])
     left_side  = np.min(s[720:1080])
 
@@ -132,10 +134,14 @@ def calculate_reward(
     safety_score = np.clip(wall_dist / 2.0, 0.0, 1.0)
     reward += (safety_score - 0.5) * cfg.reward_safety_weight
 
-    # 6. センターライン維持 (EXP-45: 係数を 4.0 -> 3.0 に緩和。生存報酬が相対的に強くなるようバランス調整)
+    # 6. センターライン維持 (EXP-46: カーブ接近時は中央維持を緩和し、デッドロックを回避)
     total_width  = left_side + right_side
     center_ratio = abs(left_side - right_side) / (total_width + 1e-6)
-    center_penalty = -center_ratio * 3.0
+    if front_dist < 5.0:
+        # カーブ進入時はセンターを外れることを許容
+        center_penalty = 0.0
+    else:
+        center_penalty = -center_ratio * 3.0
     reward += center_penalty
 
     # 7. 走行距離報酬

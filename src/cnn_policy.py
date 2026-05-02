@@ -46,7 +46,7 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         lidar_size: int = 216,
         frame_stack: int = 4,
         extra_size: int = 4,  # vehicle_state(2) + extra_feats(2)
-        features_dim: int = 256,
+        features_dim: int = 512, # EXP-46: 256 -> 512 (情報保持能力の向上)
     ):
         super().__init__(observation_space, features_dim=features_dim)
 
@@ -56,26 +56,29 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
 
         # --- Conv1D ブロック ---
         # 入力: (batch, frame_stack, lidar_size)
-        # → 出力: (batch, 64, L') を Flatten して全結合へ
         self.conv_block = nn.Sequential(
-            # Layer 1: kernel=7, 近接壁の形状を捉える
+            # Layer 1: kernel=7, 受容野 8.75° (7/216*270)
             nn.Conv1d(in_channels=frame_stack, out_channels=32, kernel_size=7, padding=3),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2),  # L/2
-            # Layer 2: kernel=5, コーナー入口など中距離パターン
+            # Layer 2: kernel=5, 受容野 約24° (累積)
             nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, padding=2),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2),  # L/4
+            # Layer 3: kernel=3, 受容野 約38° (累積)
+            # ※ EXP-46: Poolingなしで情報を保持しつつ受容野を拡大
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.ReLU(),
         )
 
         # Conv 後の lidar_size (プーリング2回で 1/4)
         conv_out_len = lidar_size // 4
-        conv_out_dim = 64 * conv_out_len
+        conv_out_dim = 128 * conv_out_len # チャンネル数が128に増加
 
         # --- Conv 出力を圧縮する全結合 ---
         self.lidar_fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(conv_out_dim, 128),
+            nn.Linear(conv_out_dim, 256), # 128 -> 256
             nn.ReLU(),
         )
 
@@ -88,7 +91,7 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         )
 
         # --- 結合後の最終全結合 ---
-        combined_dim = 128 + 64
+        combined_dim = 256 + 64
         self.out_fc = nn.Sequential(
             nn.Linear(combined_dim, features_dim),
             nn.ReLU(),
