@@ -107,8 +107,13 @@ def calculate_reward(
     # 正しいカーブ方向に操舵していればボーナス、していなければペナルティ
     if front_dist > 3.0:
         diag_asymmetry = abs(diag_left - diag_right) / diag_total
-        # curve_dir: +1=左カーブ(左diag短い), -1=右カーブ(右diag短い)
-        curve_dir = np.sign(diag_left - diag_right)
+        # F1Tenth Gym 符号規約:
+        #   steer > 0 = 左回転,  steer < 0 = 右回転
+        #   左カーブ → 左diagが短い → diag_right > diag_left → curve_dir = +1
+        #   右カーブ → 右diagが短い → diag_right < diag_left → curve_dir = -1
+        # ※ 旧コード: np.sign(diag_left - diag_right) は符号が逆で
+        #   「正しく曲がるたびにペナルティ、外壁に向かうとボーナス」になっていた。
+        curve_dir = np.sign(diag_right - diag_left)  # BUG FIX: diag_left→diag_right の差
         steer = action[0]
         steer_alignment = steer * curve_dir  # 正 = カーブ方向に操舵中
 

@@ -173,6 +173,8 @@ class F1TenthRL(gym.Env):
         if config.INCLUDE_VEHICLE_STATE:
             # 現在の車両状態を取得 [速度, ステアリング]
             state = self.env.sim.agents[0].state
+            # state自体がNaNになる場合があるためガード
+            state = np.nan_to_num(state, nan=0.0)
             vel   = float(state[3]) / config.MAX_SPEED       # [0, 1]付近
             steer = float(state[2]) / self.steer_limit       # [-1, 1]
             norm_parts.append(np.array([vel, steer], dtype=np.float32))
@@ -196,7 +198,7 @@ class F1TenthRL(gym.Env):
         
         # 最終出力のNaNチェック
         obs_final = np.concatenate(stacked_obs)
-        return np.nan_to_num(obs_final, nan=0.0)
+        return np.nan_to_num(obs_final, nan=0.0, posinf=1.0, neginf=-1.0)
 
     def reset(self):
         """
@@ -234,6 +236,9 @@ class F1TenthRL(gym.Env):
         1ステップ実行 (Action Repeat 導入版)
         """
         # アクションのスケーリング
+        # アクションのNaNチェック (保険)
+        action = np.nan_to_num(action, nan=0.0)
+
         # steer: [-1, 1] -> [-max_steer, max_steer] (ラジアン)
         steer = float(action[0]) * self.steer_limit
         # speed: [-1, 1] -> [MIN_SPEED, MAX_SPEED]
