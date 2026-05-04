@@ -91,10 +91,23 @@ def calculate_reward(
     #   角度θ → インデックス: (θ + 135) * 4
     # ================================================================
 
-    # 1. 前方空間報酬 (±40°)
-    #    -40°: (−40+135)*4=380,  +40°: (40+135)*4=700
+    # 1. 前方・斜め前方空間報酬 (EXP-48改善)
+    #    前方 ±40°: s[380:700]
+    #    左斜め前  0°〜+40°: s[540:700]
+    #    右斜め前 -40°〜0°: s[380:540]
+    #
+    #    tamoku マップの問題:
+    #    カーブ入口では「正面は遠い・横が詰まる」という変化で現れる。
+    #    front_dist だけでは検出が遅れ、入口で突然衝突する。
+    #    斜め前方の広い側を 0.8 倍のウェイトで加味することで
+    #    カーブ入口の「通れる隙間」を事前に報酬に反映する。
     front_dist = np.min(s[380:700])
-    reward = (front_dist / 30.0) * cfg.reward_front_weight
+    diag_left  = np.min(s[540:700])   # 左斜め前: 0°〜+40°
+    diag_right = np.min(s[380:540])   # 右斜め前: -40°〜0°
+    open_side  = max(diag_left, diag_right)
+    # カーブ入口で片側が開いていれば、その空間を報酬として加味
+    effective_front = max(front_dist, open_side * 0.8)
+    reward = (effective_front / 30.0) * cfg.reward_front_weight
 
     # 2. 側面壁距離の取得 (センターライン計算用)
     #    右方向: -135°〜-45°  → s[0:360]
@@ -139,16 +152,29 @@ def calculate_reward(
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale
 
-    # 8. 回転ペナルティ (EXP-47: 「その場回転」報酬ハッキングの封じ込め)
+    # 8. 回転ペナルティ (EXP-48改善: 低速カーブ進入への誤爆を防止)
     # 「大きなステアリング入力のわりに前進距離が少ない」状態を検出してペナルティ
-    # progress_norm: 十分に前進 → 1.0, 停止・回転 → 0.0
-    # 0.05m/step ≈ 2m/s相当（ACTION_REPEAT=4・40Hz環境）
-    progress_norm = np.clip(progress / 0.05, 0.0, 1.0)
-    spin_penalty = abs(action[0]) * (1.0 - progress_norm) * 0.5
+    #
+    # EXP-47の問題:
+    #   閾値 0.05m/step (≈2m/s) に対して、0.3m/s走行では
+    #   progress ≈ 0.03m となり progress_norm ≈ 0.6 が常時発生。
+    #   カーブで正常にハンドルを切るたびに毎ステップペナルティが課されていた。
+    #
+    # EXP-48改善:
+    #   閾値を 0.02m/step (≈0.8m/s) に下げ、低速でも前進していればペナルティなし。
+    #   さらにバッファ (0.3) を設け、「ほぼ停止+大ステア」のみを対象とする。
+    #   これにより「低速カーブ走行」と「その場スピン」を明確に区別する。
+    progress_norm = np.clip(progress / 0.02, 0.0, 1.0)  # 0.05 -> 0.02
+    spin_excess = max(0.0, (1.0 - progress_norm) - 0.3)  # 0.3未満は無罰
+    spin_penalty = abs(action[0]) * spin_excess * 0.5
     reward -= spin_penalty
 
-    # 9. ステアリング安定性 (EXP-38: カーブでの積極的操舵を妨げないよう軽減)
-    reward += (1.0 - abs(action[0])) * 0.1  # 0.3 -> 0.1
+    # 9. ステアリング安定性 (EXP-48改善: カーブ手前では直進バイアスをオフ)
+    # 前方 > 5m の直線区間のみ「真っ直ぐ走る」を優遇する。
+    # 前方 < 5m（カーブ入口）ではこの報酬を停止し、
+    # 大きくハンドルを切る行動を妨げないようにする。
+    if front_dist > 5.0:
+        reward += (1.0 - abs(action[0])) * 0.1
 
     # 10. 生存報酬 (EXP-47: 0.2を維持。回転ペナルティ導入で「回転しながら生きる」期待報酬はマイナスに)
     reward += cfg.reward_survival

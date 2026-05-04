@@ -109,25 +109,60 @@ LiDAR → clip + 0-1反転 → フレームスタック
 
 ## ■ モデル構造（実装済み）
 
-### 旧状態
-MLP（全結合）のみ
+### 現状（EXP-47構成）
+LiDAR空間特徴を抽出する **Conv1D** と、車両状態を処理する **MLP** のハイブリッド構成。
 
-### 現状（新）
+```mermaid
+graph TD
+    subgraph Input
+        L[LiDAR 216点 x 4F]
+        S[車両状態 4点 x 4F]
+    end
+
+    subgraph FeatureExtractor["Conv1DLidarExtractor (features_dim=512)"]
+        L --> C1[Conv1D k7/p3/s1] --> M1[MaxPool /2]
+        M1 --> C2[Conv1D k5/p2/s1] --> M2[MaxPool /2]
+        M2 --> C3[Conv1D k3/p1/s1]
+        C3 --> FL["Flatten (128x54=6912)"]
+        FL --> LFC[Linear 256]
+
+        S --> SFC[Linear 64]
+
+        LFC --> CAT[Concat 320]
+        SFC --> CAT
+        CAT --> OFC[Linear 512]
+    end
+
+    subgraph PPOHead["PPO Policy/Value Head (net_arch=[256, 256])"]
+        OFC --> P[Actor Branch]
+        OFC --> V[Critic Branch]
+    end
 ```
-LiDAR → Conv1D(32) → MaxPool → Conv1D(64) → MaxPool → FC(128)
-                                                             ↓
-車両状態+追加特徴 → FC(64) ─────────────────────────────────┤
-                                                             ↓
-                                                       結合 → FC(256) → PPO出力
-```
 
-実装場所: `src/cnn_policy.py` (`Conv1DLidarExtractor`)  
-切り替え: `config.py` の `USE_CNN_POLICY = True/False`
+*   **実装場所**: `src/cnn_policy.py` (`Conv1DLidarExtractor`)
+*   **特徴**:
+    *   **Paddingの利用**: 各畳み込み層で `padding` を使用し、長さの欠落を防いでいる（Flatten前は 54点）。
+    *   **広域→局所**: カーネルサイズを `7→5→3` と段階的に小さくし、広い視野から詳細な形状へ抽出。
 
-### 効果
-- 壁・コーナー検出（局所的な空間パターンの捉え方）
-- ノイズ耐性向上
-- LiDARの空間構造を活用
+---
+
+## ■ アーキテクチャ・レビューと改善案（2026/05/04記録）
+
+ユーザーによる詳細レビューに基づき、以下の課題と改善案を整理。
+
+### 課題
+1.  **時間情報の扱いが弱い**: フレームスタックをチャンネルとして Conv1D で混ぜているため、厳密な時系列（動き）の学習が不十分。
+2.  **解像度依存**: `Flatten` 後の次元が入力解像度（LiDAR点数）に依存しており、設定変更に弱い。
+3.  **FC層のパラメータ肥大**: `Flatten` 直後の全結合層が大きく、Jetson等のエッジデバイスでの負荷要因。
+
+### 改善提案
+| 優先度 | 項目 | 内容 | 効果 |
+| :--- | :--- | :--- | :--- |
+| **A** | **AdaptiveAvgPool1d 導入** | Flatten 前に GAP を挿入 | パラメータ削減、解像度非依存化 |
+| **B** | **net_arch 見直し** | `[256, 256]` からの最適化 | 推論速度向上、過学習抑制 |
+| **C** | **時系列モデルの導入** | LSTM / GRU / Temporal Conv | 動的な物体回避、速度予測の向上 |
+
+---
 
 ---
 
@@ -158,17 +193,16 @@ LiDAR → Conv1D(32) → MaxPool → Conv1D(64) → MaxPool → FC(128)
 
 ---
 
-## ■ 優先順位（更新済み）
-
 | # | 項目 | 状態 |
 |---|------|------|
 | 1 | 前処理修正 | ✅ 完了 |
 | 2 | 入力設計改善 (front_dist/min_dist) | ✅ 完了 |
 | 3 | CNN導入 (Conv1D特徴抽出器) | ✅ 完了 |
 | 4 | 報酬調整 | ✅ 実装済み (rewards.py) |
-| 5 | PPO調整 | ✅ 部分実装済み |
-| 6 | **再学習・比較** | ⬜ 次のアクション |
-| 7 | SAC検討 | ⬜ 後回し |
+| 5 | PPO調整 (net_arch拡大 [256, 256]) | ✅ 完了 (EXP-47) |
+| 6 | **モデル軽量化・柔軟性向上 (GAP等)** | ⬜ 次のアクション |
+| 7 | **時系列処理の強化 (LSTM等)** | ⬜ 検討中 |
+| 8 | SAC検討 | ⬜ 後回し |
 
 ---
 

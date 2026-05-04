@@ -70,7 +70,14 @@ def main():
 
     if args.resume:
         # --- 継続学習: 既存モデルをロードして学習を再開 ---
-        resume_path = args.resume if args.resume.endswith('.zip') else args.resume + '.zip'
+        if os.path.dirname(args.resume) == '':
+            resume_path = os.path.join(config.MODEL_DIR, args.resume)
+        else:
+            resume_path = args.resume
+
+        if not resume_path.endswith('.zip'):
+            resume_path += '.zip'
+
         print(f"継続学習モード: {resume_path} をロード")
         model = PPO.load(
             resume_path,
