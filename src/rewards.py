@@ -96,22 +96,13 @@ def calculate_reward(
     front_dist = np.min(s[380:700])
     reward = (front_dist / 30.0) * cfg.reward_front_weight
 
-    # 2. Follow the Gap 報酬 (EXP-46: 最も開いている方向へハンドルを切る動機付け)
-    gap_idx = np.argmax(s) # 1080点の中で最も遠い方向
-    gap_angle_deg = (gap_idx / 1080.0 * 270.0) - 135.0
-    gap_angle_norm = gap_angle_deg / 135.0 # [-1, 1]
-    
-    steer = action[0] # 正=左, 負=右
-    # gap_angle_norm > 0 (左に隙間) かつ steer > 0 (左操舵) なら正
-    gap_alignment = steer * gap_angle_norm
-
-    if abs(gap_angle_deg) > 15.0: # 真正面以外に隙間がある場合
-        # 隙間に向かっていればボーナス (最大 0.5)
-        reward += np.clip(gap_alignment, 0.0, 0.5)
-    
-    # 3. 側面壁距離の取得 (センターライン計算用)
+    # 2. 側面壁距離の取得 (センターライン計算用)
+    #    右方向: -135°〜-45°  → s[0:360]
+    #    左方向: +45°〜+135°  → s[720:1080]
     right_side = np.min(s[0:360])
     left_side  = np.min(s[720:1080])
+    # ※ EXP-47: Follow the Gap 報酬を削除。
+    # np.argmax(s)を使ったボーナスは「広い直線で回転し続ける」報酬ハッキングを誘発した(知見22)。
 
     # 4. 速度報酬 (動的ブレーキ距離の導入)
     speed_factor = current_speed / cfg.max_speed
@@ -148,10 +139,18 @@ def calculate_reward(
     progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
     reward += progress * cfg.reward_progress_weight * progress_scale
 
-    # 8. ステアリング安定性 (EXP-38: カーブでの積極的操舵を妨げないよう軽減)
+    # 8. 回転ペナルティ (EXP-47: 「その場回転」報酬ハッキングの封じ込め)
+    # 「大きなステアリング入力のわりに前進距離が少ない」状態を検出してペナルティ
+    # progress_norm: 十分に前進 → 1.0, 停止・回転 → 0.0
+    # 0.05m/step ≈ 2m/s相当（ACTION_REPEAT=4・40Hz環境）
+    progress_norm = np.clip(progress / 0.05, 0.0, 1.0)
+    spin_penalty = abs(action[0]) * (1.0 - progress_norm) * 0.5
+    reward -= spin_penalty
+
+    # 9. ステアリング安定性 (EXP-38: カーブでの積極的操舵を妨げないよう軽減)
     reward += (1.0 - abs(action[0])) * 0.1  # 0.3 -> 0.1
 
-    # 9. 生存報酬 (EXP-45: config.REWARD_SURVIVALを0.5に引き上げ。「生きている間は必ず正の基礎報酬」を保証)
+    # 10. 生存報酬 (EXP-47: 0.2を維持。回転ペナルティ導入で「回転しながら生きる」期待報酬はマイナスに)
     reward += cfg.reward_survival
 
     return reward
