@@ -7,7 +7,7 @@ from .profiles import PROFILES
 
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
-DEVICE = "cuda"  # "cpu", "cuda", "auto" から選択可能
+DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習環境プロファイル ---
 # 環境変数 TRAINING_PROFILE で使用する設定セットを切り替えます。
@@ -104,7 +104,7 @@ REWARD_PROGRESS_WEIGHT = 1.0   # EXP-45: 4.0 -> 1.0 (ACTION_REPEAT=4と積み合
 #   my_map        -- 独自の倉庫マップ（デフォルト）
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/testmap-tamoku/map-tamoku")
+MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/honbann-cose/map_1_0509_145516")
 MODEL_DIR = os.environ.get("MODEL_DIR", "/workspace/models")
 LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
@@ -115,19 +115,12 @@ START_POSE = [-3, -3.5, 0.0]
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [-3.00, -3.50, 0.00],  # Pose 0
-    [7.00, -3.70, 0.30],  # Pose 1
-    [-2.50, -0.10, 3.40],  # Pose 2
-    [8.80, -0.80, 2.50],  # Pose 3
-    [8.24, -0.41, 2.55],  # Pose 4
-    [8.95, -3.26, 0.79],  # Pose 5
-    [8.99, -3.37, 0.98],  # Pose 6
-    [8.47, -3.60, 0.48],  # Pose 7
-    [9.29, -2.66, 1.66],  # Pose 8
-    [-5.43, -1.91, -2.21],  # Pose 9
-    [-3.18, -0.26, -2.55],  # Pose 10
-    [5.23, -0.18, -3.14],  # Pose 11
-    [-1.94, -0.03, -3.03],  # Pose 12
+    [-2.08, 0.36, 0.00],  # Pose 0
+    [1.80, 0.39, 1.09],  # Pose 1
+    [1.16, 3.23, -2.58],  # Pose 2
+    [-0.98, 3.48, 2.39],  # Pose 3
+
+
 
 ]
 
