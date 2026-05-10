@@ -3,47 +3,74 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Active](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
+[![Framework: Stable Baselines3](https://img.shields.io/badge/RL-Stable_Baselines3-purple.svg)]()
 
-**Deep Reinforcement Learning × LiDAR-based Autonomous Racing**
+> **Deep Reinforcement Learning × LiDAR-based Autonomous Racing**
+>
+> F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速かつ安定した自律走行を実現するAI（PPOアルゴリズム）を開発するプロジェクトです。
+> 単なるシミュレーション上のスコアアタックにとどまらず、**実機（Jetson搭載車両）へのデプロイ（Sim-to-Real）**を強く意識した一貫性のあるワークフローを提供します。
 
-F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速かつ安定した自律走行を実現するAI（PPO）を開発するプロジェクトです。
-シミュレーションでの学習から実機（Jetson）へのデプロイまでを考慮した、開発者にとって一貫性のあるワークフローを提供します。
+---
+
+## ✨ 技術的ハイライト (Key Features)
+
+本プロジェクトでは、より高度な空間認識と実機適応を目指し、以下の独自拡張を施しています。
+
+*   🧠 **1D-CNN (Conv1D) ポリシー**: 従来のMLPの限界を突破。LiDAR点群の空間的な連続性と、フレーム積層による時間的な動きを正確に抽出。
+*   🎯 **Sim-to-Real 観測**: 360°のデータを実機(Hokuyo URG)同様の **270°マスク** に制限して学習。
+*   🔍 **高解像度LiDAR**: 1440本のビームを処理し、微細な壁の凹凸や狭いコーナーの隙間を認識。
+*   ⏱️ **サブステップ観測更新**: `ACTION_REPEAT` 中のサブステップごとに観測バッファを更新し、極めて高い時間分解能で加速・減速を制御。
+*   📊 **統計的報酬設計**: マップ固有の壁距離の中央値（p50/p75）を基準とした正規化により、様々な道幅のコースに柔軟に適応。
 
 ---
 
 ## 🏗️ システムアーキテクチャ
 
-本プロジェクトは、機能ごとにモジュール化されており、新しい報酬関数やネットワーク構造の導入が容易な設計になっています。
+システムは機能ごとに疎結合にモジュール化されており、新しいアイデア（報酬関数やネットワーク構造）の導入が容易です。
 
 ```mermaid
 graph TD
-    subgraph Core Logic
-        A[f1_env.py] -- 観測データの加工 --> B[Policy Model]
-        B -- 行動指令 --> A
-        C[rewards.py] -- 報酬計算 --> A
+    subgraph F1Tenth Environment
+        A[f1_env.py<br/>Gym Wrapper] -- 観測データ<br/>(LiDAR+State) --> B[cnn_policy.py<br/>Conv1D Extractor]
+        B -- 行動指令<br/>(Steer, Speed) --> A
+        C[rewards.py<br/>Reward Logic] -- 報酬計算 --> A
     end
     subgraph Configuration
-        D[config.py] --> A
-        E[profiles.py] --> D
+        D[config.py<br/>Global Settings] --> A
+        D --> C
     end
-    subgraph Data
-        F[my_maps/] --> A
-        B --> G[models/]
+    subgraph Data & Logs
+        F[my_maps/<br/>Maps] --> A
+        B -.-> G[models/<br/>ONNX / ZIP]
     end
 ```
 
-### 主要コンポーネント
-- **`src/f1_env.py`**: シミュレータをGymインターフェースにラップ。LiDARのダウンサンプリング、フレーム積層、車両状態の正規化を一括管理します。
-- **`src/rewards.py`**: 報酬計算のロジックを集約。`RewardConfig` クラスにより、学習パラメータを柔軟に変更可能です。
-- **`src/cnn_policy.py`**: LiDAR点群の空間的な連続性を捉えるための1次元畳み込み（Conv1D）ネットワーク。
-- **`src/config.py`**: プロジェクト全体のマスター設定ファイル。環境変数による動的な上書きをサポートします。
+---
+
+## 📂 ディレクトリ構成
+
+```text
+f1tenth-rl-project/
+├── scripts/
+│   ├── train.py          # 学習実行スクリプト
+│   ├── evaluate.py       # モデル評価スクリプト
+│   └── enjoy_wide.py     # 走行動画（mp4/gif）生成スクリプト
+├── src/
+│   ├── f1_env.py         # F1Tenth Gym 環境ラッパー（前処理・積層）
+│   ├── rewards.py        # 報酬関数定義ロジック
+│   ├── cnn_policy.py     # カスタムCNN（Conv1D）ネットワーク構造
+│   └── config.py         # ハイパーパラメータ・環境設定マスター
+├── my_maps/              # カスタムマップデータ (.pgm, .yaml)
+├── EXPERIMENT_PLAN.md    # 実験ログ・考察・知見の蓄積（最重要ドキュメント）
+├── EXPERIMENT_REPORT.md  # 開発フェーズごとの総括レポート
+└── docker-compose.yml    # GPU対応コンテナ環境定義
+```
 
 ---
 
 ## 🚀 クイックスタート (Docker)
 
-Dockerを使用することで、GPU環境を含めたセットアップが最短3分で完了します。
-
+Dockerを使用することで、煩雑なCUDA環境の構築をスキップし、最短3分で学習を開始できます。
 
 ### 1. 環境の起動
 ```bash
@@ -53,66 +80,45 @@ docker compose build
 # コンテナの起動
 docker compose up -d
 
-# コンテナ内に入る
+# コンテナ内シェルへのアクセス
 docker compose exec f1-sim-latest bash
 ```
 
-### 2. 学習の実行 (最新のCNNモデル例)
+### 2. 学習の実行
+最新の設定（CNNモデル）で学習を開始します。
 ```bash
-# 実験用スクリプトの実行
-python3 scripts/train.py --model model_name --steps 5000000
+python3 scripts/train.py --model my_first_model --steps 5000000
+```
+別のターミナルで `tensorboard --logdir logs --host localhost` を実行すれば、ブラウザからリアルタイムで進捗を確認できます。
+
+### 3. 評価と可視化
+学習したモデルの完走率をテストし、走行の様子を動画化します。
+```bash
+# 20エピソードのテスト走行
+python3 scripts/evaluate.py --model my_first_model --episodes 20
+
+# 走行動画の生成
+python3 scripts/enjoy_wide.py --model my_first_model --save /workspace/gif/my_first_model.mp4
 ```
 
-### 3. 進捗確認
-別のターミナルで TensorBoard を起動し、ブラウザで `localhost:6006` を開いてください。
-```bash
-tensorboard --logdir logs --host localhost
-```
+---
+
+## 👨‍💻 開発者向けガイド
+
+*   **報酬関数のカスタマイズ**: `src/rewards.py` を編集します。現在はマップの実測統計値に基づく正規化を行っています。新しいマップを追加する際は、マップ幅に応じた定数の見直しを推奨します。
+*   **過去の知見の活用**: 新しい実験を始める前に、必ず [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) を一読してください。過去に経験した「局所解の性質」「報酬ハッキングの事例」などが詳細に記録されています。
 
 ---
 
-## 👨‍💻 開発者ガイド (How-to)
+## ⚠️ 既知のトラブルシューティング・注意事項
 
-新しいプログラマがプロジェクトを拡張するためのガイドです。
-
-### 新しい実験 (Experiment) を追加する
-1. `src/config_expXX.py` を作成（既存のファイルをコピー）。
-2. `scripts/experiments/run_expXX.sh` を作成し、必要な環境変数を設定。
-3. `python3 scripts/train.py` を呼び出す際に、モデル名やステップ数を指定。
-
-### 報酬関数をカスタマイズする
-`src/rewards.py` の `calculate_reward` 関数を編集します。LiDARの角度インデックス（1080点/270°）の対応表がコメントに記載されており、特定の方向（前方、左右など）へのペナルティ/ボーナスを簡単に追加できます。
-
-### 新しいマップを追加する
-`my_maps/` ディレクトリに `.pgm` (画像) と `.yaml` (メタデータ) を配置し、`config.py` の `MAP_PATH` を更新します。
-
----
-
-## 🛠️ ハードウェア要件
-
-- **OS**: Linux (Ubuntu 20.04/22.04 推奨)
-- **GPU**: NVIDIA GPU (CUDA対応) + `nvidia-container-toolkit`
-- **実機同期**: 制御周波数は実機Hokuyoに合わせて **40Hz** に設定されています。
-
----
-
-## 💡 技術的ハイライト
-
-- **Sim-to-Real 観測**: 360°のシミュレーションデータを、実機同様の **270°マスク** に制限して学習。
-- **高解像度観測**: 1440本のLiDARビームを216点に処理（従来の2倍）。
-- **Frame Stacking**: 4フレームを積層し、AIに時間的な変化（速度ベクトル）を認識させます。
-
----
-
-## ⚠️ トラブルシューティング
-
-- **CUDAエラー**: コンテナ外で `nvidia-smi` が動作することを確認し、`docker-compose.yml` の `deploy.resources.reservations.devices` 設定を確認してください。
-- **学習が収束しない**: `MIN_SPEED` が高すぎないか確認してください。物理的に曲がれない速度を強いると、学習が停滞します。
-- **モデルロード失敗**: 観測次元（LiDAR点数 + 状態数）が変わるとロードできません。
+*   **報酬ハッキング**: 強すぎる「前進報酬」や不適切な「最大距離ボーナス」は、AIが広い場所でその場回転し続ける挙動を誘発します。これを防ぐために `rewards.py` に `spin_penalty` が導入されています。
+*   **物理エンジンの警告**: 学習初期に `RuntimeWarning: overflow encountered in multiply` が出ることがありますが、AIが極端な操作を試した際の物理エンジンの悲鳴です。`nan_to_num` ガードで処理されているため、学習自体は正常に継続します。
+*   **CUDAエラー**: コンテナ外で `nvidia-smi` が動作しているか、`docker-compose.yml` のリソース設定が正しいかを確認してください。
 
 ---
 
 ## 📝 バージョン情報
-- **最終更新**: 2026-05-01
-- **最新フェーズ**: フェーズ12（CNNポリシー）
-- **ライセンス**: MIT
+*   **最終更新**: 2026-05-11
+*   **最新フェーズ**: フェーズ13（CNNの洗練・極狭路マップへの最適化）
+*   **ライセンス**: MIT

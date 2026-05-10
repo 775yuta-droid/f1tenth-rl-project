@@ -27,59 +27,27 @@ PPO（Proximal Policy Optimization）は強化学習アルゴリズムであり�
 - ~~前処理の不安定性~~ → **0-1反転正規化に修正 ✅**
 - ~~入力設計の不十分さ~~ → **front_dist / min_dist 特徴を追加 ✅**
 - ~~LiDAR構造未活用（MLPの限界）~~ → **Conv1D特徴抽出器を導入 ✅**
-
-※ アルゴリズム自体は問題ではない
+- ~~時間情報の欠落~~ → **torch.flip および サブステップ観測更新を導入 ✅**
 
 ---
 
 ## ■ LiDAR前処理（実装済み）
-
-### 問題点（旧）
-- inf / NaN 未処理
-- クリッピングなし
-- Z-score正規化（不安定）
-
----
 
 ### 実装済み前処理（development-plan.md準拠）
 
 ```python
 def preprocess_lidar(lidar, max_range=30.0):
     import numpy as np
-
     lidar = np.array(lidar)
-
     lidar = np.nan_to_num(lidar, nan=max_range)
     lidar[np.isinf(lidar)] = max_range
     lidar = np.clip(lidar, 0.0, max_range)
-
     lidar = lidar / max_range
     lidar = 1.0 - lidar   # ← 近い壁=1.0, 遠い空間=0.0
-
     return lidar
 ```
 
 実装場所: `src/f1_env.py` の `_get_obs()` 内
-
----
-
-### 数値条件
-- 範囲：0.0 ～ 1.0
-- NaN：なし（reset/step でクリーニング後に適用）
-- inf：なし
-
----
-
-## ■ 正規化 vs 正則化
-
-| 用語 | 内容 |
-|------|------|
-| 正規化 | 入力スケール調整 |
-| 正則化 | 過学習防止 |
-
-優先度：
-- 正規化：**実装完了**
-- 正則化：後回し
 
 ---
 
@@ -93,47 +61,28 @@ def preprocess_lidar(lidar, max_range=30.0):
 
 ---
 
-### 構成（現状）
-```
-LiDAR → clip + 0-1反転 → フレームスタック
-                        ↗ front_dist スカラー追加
-                        ↗ min_dist スカラー追加
-                        ↗ 車両状態 [vel, steer]
-                                    ↓
-                              Conv1D特徴抽出器
-                                    ↓
-                               MLP(PPO)
-```
+## ■ モデル構造（最新：EXP-48構成）
 
----
-
-## ■ モデル構造（実装済み）
-
-### 現状（EXP-47構成）
 LiDAR空間特徴を抽出する **Conv1D** と、車両状態を処理する **MLP** のハイブリッド構成。
 
 ```mermaid
 graph TD
     subgraph Input
-        L[LiDAR 216点 x 4F]
-        S[車両状態 4点 x 4F]
+        L[LiDAR 216点 x 4F] -- torch.flip --> C1
+        S[車両状態 2点 x 4F] --> SFC
     end
 
-    subgraph FeatureExtractor["Conv1DLidarExtractor (features_dim=512)"]
-        L --> C1[Conv1D k7/p3/s1] --> M1[MaxPool /2]
-        M1 --> C2[Conv1D k5/p2/s1] --> M2[MaxPool /2]
-        M2 --> C3[Conv1D k3/p1/s1]
-        C3 --> FL["Flatten (128x54=6912)"]
-        FL --> LFC[Linear 256]
-
-        S --> SFC[Linear 64]
-
-        LFC --> CAT[Concat 320]
-        SFC --> CAT
-        CAT --> OFC[Linear 512]
+    subgraph ConvBlock["Conv1DLidarExtractor"]
+        C1[Conv1D k7/p3/s1] --> M1[MaxPool /2]
+        M1 --> C2[Conv1D k9/p4/s1] --> M2[MaxPool /2]
+        M2 --> C3[Conv1D k5/p2/s1] --> GAP[AdaptiveAvgPool1d 16]
+        GAP --> LFC[Linear 256]
+        SFC[Linear 32] --> CAT
+        LFC --> CAT[Concat]
+        CAT --> OFC[Linear 256]
     end
 
-    subgraph PPOHead["PPO Policy/Value Head (net_arch=[256, 256])"]
+    subgraph PPOHead["net_arch=[128, 128]"]
         OFC --> P[Actor Branch]
         OFC --> V[Critic Branch]
     end
@@ -141,90 +90,38 @@ graph TD
 
 *   **実装場所**: `src/cnn_policy.py` (`Conv1DLidarExtractor`)
 *   **特徴**:
-    *   **Paddingの利用**: 各畳み込み層で `padding` を使用し、長さの欠落を防いでいる（Flatten前は 54点）。
-    *   **広域→局所**: カーネルサイズを `7→5→3` と段階的に小さくし、広い視野から詳細な形状へ抽出。
+    *   **AdaptiveAvgPool1d**: 入力解像度に依存しない堅牢な設計。
+    *   **時間順序の正常化**: `torch.flip` により物理的な因果関係を正しく学習。
 
 ---
 
-## ■ アーキテクチャ・レビューと改善案（2026/05/04記録）
+## ■ 報酬設計 (最新ロジック)
 
-ユーザーによる詳細レビューに基づき、以下の課題と改善案を整理。
-
-### 課題
-1.  **時間情報の扱いが弱い**: フレームスタックをチャンネルとして Conv1D で混ぜているため、厳密な時系列（動き）の学習が不十分。
-2.  **解像度依存**: `Flatten` 後の次元が入力解像度（LiDAR点数）に依存しており、設定変更に弱い。
-3.  **FC層のパラメータ肥大**: `Flatten` 直後の全結合層が大きく、Jetson等のエッジデバイスでの負荷要因。
-
-### 改善提案
-| 優先度 | 項目 | 内容 | 効果 |
-| :--- | :--- | :--- | :--- |
-| **A** | **AdaptiveAvgPool1d 導入** | Flatten 前に GAP を挿入 | パラメータ削減、解像度非依存化 |
-| **B** | **net_arch 見直し** | `[256, 256]` からの最適化 | 推論速度向上、過学習抑制 |
-| **C** | **時系列モデルの導入** | LSTM / GRU / Temporal Conv | 動的な物体回避、速度予測の向上 |
+### マップ最適化報酬
+- **前方空間**: マップ実測値（8m）で正規化。前方+斜め（`open_side`）のハイブリッド評価。
+- **3段階安全スコア**: マップの壁距離統計値（p50/p75/Danger）に基づいた動的な線形補間。
+- **ブレーキ能力**: `safe_brake_dist` の定数項をマップ幅に合わせて縮小。
+- **スピンペナルティ**: 報酬ハッキング（広い場所での回転）を防止。
 
 ---
 
----
-
-## ■ 報酬設計
-
-### 現状要素
-- 前方距離
-- 速度
-- 壁距離
-- 進行距離
-
----
-
-### 注意
-- 速度偏重 → 衝突
-- 安全偏重 → 遅い
-
----
-
-## ■ PPO以外
-
-### SAC
-- 高性能
-- 不安定
-
-### 結論
-現段階ではPPOが最適
-
----
+## ■ 進捗状況まとめ
 
 | # | 項目 | 状態 |
 |---|------|------|
 | 1 | 前処理修正 | ✅ 完了 |
 | 2 | 入力設計改善 (front_dist/min_dist) | ✅ 完了 |
-| 3 | CNN導入 (Conv1D特徴抽出器) | ✅ 完了 |
-| 4 | 報酬調整 | ✅ 実装済み (rewards.py) |
-| 5 | PPO調整 (net_arch拡大 [256, 256]) | ✅ 完了 (EXP-47) |
-| 6 | **モデル軽量化・柔軟性向上 (GAP等)** | ⬜ 次のアクション |
-| 7 | **時系列処理の強化 (LSTM等)** | ⬜ 検討中 |
-| 8 | SAC検討 | ⬜ 後回し |
-
----
-
-## ■ 結論
-
-改善の本質は：
-
-「アルゴリズムではなく設計」
-
-特に重要：
-- 前処理（**実装完了**）
-- 入力設計（**実装完了**）
-- モデル構造（**Conv1D実装完了**）
+| 3 | CNN導入 (Conv1D) | ✅ 完了 |
+| 4 | 報酬調整 (統計的正規化/スピン防止) | ✅ 完了 |
+| 5 | モデル軽量化・柔軟性向上 (GAP導入) | ✅ 完了 |
+| 6 | 時間軸反転バグの修正 | ✅ 完了 |
+| 7 | サブステップ観測更新の実装 | ✅ 完了 |
+| 8 | 時系列処理の更なる強化 (LSTM等) | ⬜ 検討中 |
 
 ---
 
 ## ■ 次のアクション
 
-- [ ] Dockerコンテナ内で再学習実行
-  ```bash
-  python3 scripts/train.py
-  ```
-- [ ] TensorBoardで旧MLP vs 新CNNモデルを比較
+- [ ] 最新報酬系（EXP-48）での tamoku マップ学習継続
+- [ ] TensorBoard で `explained_variance` (>0.8) と `std` (0.3~0.5) を監視
 - [ ] enjoy_wide.py で走行動画を確認
-- [ ] 衝突頻度・平均報酬の定量評価
