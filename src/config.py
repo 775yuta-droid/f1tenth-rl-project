@@ -7,7 +7,7 @@ from .profiles import PROFILES
 
 # --- デバイス設定 ---
 # 互換性重視のため CPU を指定
-DEVICE = "cpu"  # "cpu", "cuda", "auto" から選択可能
+DEVICE = "cuda"  # "cpu", "cuda", "auto" から選択可能
 
 # --- 学習環境プロファイル ---
 # 環境変数 TRAINING_PROFILE で使用する設定セットを切り替えます。
@@ -66,7 +66,7 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.01  # EXP-47: 0.03 -> 0.01 (回転ハッキング収束後のstd爆発を防止。EXP-45で安定が確認された値)
+PPO_ENT_COEF = 0.02  # EXP-47: 0.03 -> 0.01 (回転ハッキング収束後のstd爆発を防止。EXP-45で安定が確認された値)
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
@@ -81,9 +81,9 @@ CAR_LENGTH = 0.465
 CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻し、物理的に狭いコースを曲がれるようにする)
 
 # --- 報酬設計の設定 ---
-REWARD_COLLISION = -100.0
-REWARD_SURVIVAL  = 0.2     # EXP-47: 0.5 -> 0.2 (「回転しながら生き続ける」報酬ハッキングを抑制。知見22)
-REWARD_FRONT_WEIGHT = 2.0   # EXP-47: 3.0 -> 2.0 (広い空間を向くだけで得点が高すぎ、回転の動機になっていた)
+REWARD_COLLISION = -200.0
+REWARD_SURVIVAL  = 0.3     # EXP-47: 0.5 -> 0.2 (「回転しながら生き続ける」報酬ハッキングを抑制。知見22)
+REWARD_FRONT_WEIGHT = 3.0   # EXP-47: 3.0 -> 2.0 (広い空間を向くだけで得点が高すぎ、回転の動機になっていた)
 REWARD_SPEED_WEIGHT = 1.5   # EXP-41 Phase1: 3.0→1.5 (安全優先。完走確認後に2.0→3.0へ引き上げ)
 REWARD_SAFETY_WEIGHT = 0.8  # EXP-08知見: 1.5は「安全を求めすぎて逃げ場を失い逐に衝突」を引き起こすため 0.8 に戻す
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ

@@ -21,8 +21,8 @@ class RewardConfig:
     デフォルト値は config.py の REWARD_* 定数と完全に一致させる。
     不一致があると単体テスト・デバッグ時に意図外の報酬計算が行われるリスクがある。
     """
-    reward_collision: float = -100.0       # config.REWARD_COLLISION: -1000 は知見1(局所解の罠)と矛盾するため-100渡し
-    reward_survival: float = 0.2           # config.REWARD_SURVIVAL
+    reward_collision: float = -200.0       # config.REWARD_COLLISION: -1000 は知見1(局所解の罠)と矛盾するため-100渡し
+    reward_survival: float = 0.3           # config.REWARD_SURVIVAL
     reward_front_weight: float = 3.0       # config.REWARD_FRONT_WEIGHT
     reward_speed_weight: float = 1.5       # config.REWARD_SPEED_WEIGHT: Phase1安全優先値(3.0→完走確認後に引き上げ)
     reward_safety_weight: float = 0.8       # config.REWARD_SAFETY_WEIGHT: EXP-08で1.5は失敗確認済み
@@ -173,7 +173,7 @@ def calculate_reward(
     # 前方 > 5m の直線区間のみ「真っ直ぐ走る」を優遇する。
     # 前方 < 5m（カーブ入口）ではこの報酬を停止し、
     # 大きくハンドルを切る行動を妨げないようにする。
-    if front_dist > 5.0:
+    if front_dist > 0.5:
         reward += (1.0 - abs(action[0])) * 0.1
 
     # 10. 生存報酬 (EXP-47: 0.2を維持。回転ペナルティ導入で「回転しながら生きる」期待報酬はマイナスに)
