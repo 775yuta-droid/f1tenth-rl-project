@@ -108,7 +108,7 @@ def main():
                     lidar_size=_lidar_size,
                     frame_stack=_frame_stack,
                     extra_size=_extra_size,
-                    features_dim=512, # EXP-46: 256 -> 512
+                    features_dim=256,
                 ),
                 net_arch=config.NET_ARCH,
                 log_std_init=-1.0,

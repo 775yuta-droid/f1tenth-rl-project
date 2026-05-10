@@ -45,8 +45,8 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         observation_space: gym.spaces.Box,
         lidar_size: int = 216,
         frame_stack: int = 4,
-        extra_size: int = 4,  # vehicle_state(2) + extra_feats(2)
-        features_dim: int = 512, # EXP-46: 256 -> 512 (情報保持能力の向上)
+        extra_size: int = 2,  # 4 → 2に修正（INCLUDE_EXTRA_FEATURES=Falseのため）
+        features_dim: int = 256, # 512 -> 256 に戻す（拡大→縮小の無駄を除去）
     ):
         super().__init__(observation_space, features_dim=features_dim)
 
@@ -61,19 +61,21 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
             nn.Conv1d(in_channels=frame_stack, out_channels=32, kernel_size=7, padding=3),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2),  # L/2
-            # Layer 2: kernel=5, 受容野 約24° (累積)
-            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, padding=2),
+            # Layer 2: kernel=9, padding=4 (コーナー認識向上)
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=9, padding=4),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2),  # L/4
-            # Layer 3: kernel=3, 受容野 約38° (累積)
+            # Layer 3: kernel=5, padding=2
             # ※ EXP-46: Poolingなしで情報を保持しつつ受容野を拡大
-            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=5, padding=2),
             nn.ReLU(),
         )
 
-        # Conv 後の lidar_size (プーリング2回で 1/4)
-        conv_out_len = lidar_size // 4
-        conv_out_dim = 128 * conv_out_len # チャンネル数が128に増加
+        self.pool = nn.AdaptiveAvgPool1d(16)  # (B, 128, L/4) → (B, 128, 16)
+
+        # Conv 後の lidar_size
+        conv_out_len = 16
+        conv_out_dim = 128 * conv_out_len # 2048
 
         # --- Conv 出力を圧縮する全結合 ---
         self.lidar_fc = nn.Sequential(
@@ -86,12 +88,12 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         # extra_size × frame_stack 分の入力
         extra_total = extra_size * frame_stack
         self.state_fc = nn.Sequential(
-            nn.Linear(extra_total, 64),
+            nn.Linear(extra_total, 32),
             nn.ReLU(),
         )
 
         # --- 結合後の最終全結合 ---
-        combined_dim = 256 + 64
+        combined_dim = 256 + 32
         self.out_fc = nn.Sequential(
             nn.Linear(combined_dim, features_dim),
             nn.ReLU(),
@@ -125,12 +127,13 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
 
         # ---- Conv1D ----
         # (B, F, L) → Conv1d expects (B, C, L): C=frame_stack (時間チャンネル) として扱う
-        conv_out = self.conv_block(lidar_frames)             # (B, 64, L/4)
-        lidar_feat = self.lidar_fc(conv_out)                 # (B, 128)
+        conv_out = self.conv_block(lidar_frames)             # (B, 128, 54)
+        conv_out = self.pool(conv_out)                       # (B, 128, 16)
+        lidar_feat = self.lidar_fc(conv_out)                 # (B, 256)
 
         # ---- 車両状態 ----
         extra_flat = extra_frames.reshape(batch, -1)         # (B, extra_size * frame_stack)
-        state_feat = self.state_fc(extra_flat)               # (B, 64)
+        state_feat = self.state_fc(extra_flat)               # (B, 32)
 
         # ---- 結合 ----
         combined = torch.cat([lidar_feat, state_feat], dim=1)  # (B, 192)
