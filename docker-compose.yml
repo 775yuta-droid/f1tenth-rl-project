@@ -1,10 +1,10 @@
 services:
-  # 【最新環境】RTX 5060 / Ubuntu 22.04 用
-  f1-sim-latest:
+  # Ubuntu 20.04 用
+  f1-sim-2004:
     build:
       context: .
-      dockerfile: Dockerfile.2204  # 先ほど作成した 22.04 版のファイル名に合わせてください
-    container_name: f1-sim-2204
+      dockerfile: Dockerfile.2004  # 先ほど作成した 22.04 版のファイル名に合わせてください
+    container_name: f1-sim-2004
     tty: true
     stdin_open: true
     volumes:
@@ -23,12 +23,12 @@ services:
               count: all
               capabilities: [gpu]
 
-  # 【旧環境】予備として残す場合 (Ubuntu 20.04 など)
-  f1-sim-legacy:
+  # Ubuntu 22.04 用
+  f1-sim-2204:
     build:
       context: .
-      dockerfile: Dockerfile     # 以前の古いDockerfileをこの名前にリネームして保存
-    container_name: f1-sim-2004
+      dockerfile: Dockerfile.2204
+    container_name: f1-sim-2204
     tty: true
     stdin_open: true
     volumes:
