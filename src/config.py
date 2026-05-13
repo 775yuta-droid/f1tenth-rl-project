@@ -35,7 +35,7 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
 TOTAL_TIMESTEPS = 5000000
-LEARNING_RATE = 5e-5  # EXP-25 付近の標準的な学習率に戻す
+LEARNING_RATE = 3e-5  # Resume安定化: 5e-5 → 3e-5（std発散後の収束を優先）
 PPO_BATCH_SIZE = 512  # GPU効率化のため 64 -> 512
 PPO_N_STEPS = 2048    # 1環境あたり収集するデータ
 
@@ -66,7 +66,7 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.02  # EXP-47: 0.03 -> 0.01 (回転ハッキング収束後のstd爆発を防止。EXP-45で安定が確認された値)
+PPO_ENT_COEF = 0.005  # Resume安定化: 0.02 → 0.005（std≈4.0の発散を即時抑制するため探索を絞る）
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
