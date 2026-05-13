@@ -45,7 +45,7 @@ class Conv1DLidarExtractor(BaseFeaturesExtractor):
         observation_space: gym.spaces.Box,
         lidar_size: int = 216,
         frame_stack: int = 4,
-        extra_size: int = 2,  # 4 → 2に修正（INCLUDE_EXTRA_FEATURES=Falseのため）
+        extra_size: int = 5,  # 2(state) + 3(extra_feats) = 5 に変更 (EXP-49)
         features_dim: int = 256, # 512 -> 256 に戻す（拡大→縮小の無駄を除去）
     ):
         super().__init__(observation_space, features_dim=features_dim)

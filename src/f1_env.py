@@ -88,8 +88,8 @@ class F1TenthRL(gym.Env):
         # 3. LiDAR残差: 現在と前ステップの差分 (同次元)
         self.residual_size = self.lidar_size if config.INCLUDE_LIDAR_RESIDUAL else 0
         
-        # 4. 追加スカラー特徴: [front_dist, min_dist] (2次元)
-        self.extra_size = 2 if config.INCLUDE_EXTRA_FEATURES else 0
+        # 4. 追加スカラー特徴: [front_dist, min_dist, lr_asymmetry] (3次元)
+        self.extra_size = 3 if config.INCLUDE_EXTRA_FEATURES else 0
         
         total_obs_size = self.lidar_size + self.residual_size + self.state_size + self.extra_size
         
@@ -163,6 +163,13 @@ class F1TenthRL(gym.Env):
         front_feat = 1.0 - np.clip(front_raw, 0.0, config.LIDAR_MAX_RANGE) / config.LIDAR_MAX_RANGE
         min_feat   = 1.0 - np.clip(min_raw,   0.0, config.LIDAR_MAX_RANGE) / config.LIDAR_MAX_RANGE
 
+        # [Fix-Env1] 左右前方距離の非対称性 (カーブのヒント)
+        # downsampled は 216点。108点(正面) ± (20°〜60°相当) をサンプリング
+        # 1点 = 1.25° なので 20°=16点, 60°=48点
+        _left_diag  = np.min(downsampled[108+16 : 108+48])
+        _right_diag = np.min(downsampled[108-48 : 108-16])
+        lr_asymmetry = (_left_diag - _right_diag) / config.LIDAR_MAX_RANGE  # [-1.0, 1.0]
+
         norm_parts = [lidar_norm]
         
         if config.INCLUDE_LIDAR_RESIDUAL:
@@ -180,7 +187,7 @@ class F1TenthRL(gym.Env):
             norm_parts.append(np.array([vel, steer], dtype=np.float32))
 
         if config.INCLUDE_EXTRA_FEATURES:
-            norm_parts.append(np.array([front_feat, min_feat], dtype=np.float32))
+            norm_parts.append(np.array([front_feat, min_feat, lr_asymmetry], dtype=np.float32))
 
         current_obs = np.concatenate(norm_parts).astype(np.float32)
 

@@ -52,7 +52,7 @@ FRAME_SKIP = 4                 # EXP-44: 1 -> 4 (視野を 0.1s -> 0.4s に拡�
 N_ENVS = 8                     # テストのため 1 に削減 (元は 8)
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
 INCLUDE_LIDAR_RESIDUAL = False # ΔLiDAR は行動安定に寄与 (EXP-15: ノイズ排除のため無効化)
-INCLUDE_EXTRA_FEATURES = False # 切り分けテスト: 観測をシンプル化 (後で再有効化)
+INCLUDE_EXTRA_FEATURES = True  # EXP-49: カーブ方向推定のため lr_asymmetry 含む3特徴量を有効化
 
 # --- 正規化設定 ---
 # development-plan.md 推奨: Z-score ではなく 0-1 反転方式を採用
@@ -66,7 +66,7 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 USE_CNN_POLICY = True
 
 # --- PPO 探索設定 ---
-PPO_ENT_COEF = 0.005  # Resume安定化: 0.02 → 0.005（std≈4.0の発散を即時抑制するため探索を絞る）
+PPO_ENT_COEF = 0.015  # EXP-49: 0.005 → 0.015（直進/回転のローカル最適から脱出するため探索を増やす）
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
@@ -88,6 +88,7 @@ REWARD_SPEED_WEIGHT = 1.5   # EXP-41 Phase1: 3.0→1.5 (安全優先。完走確
 REWARD_SAFETY_WEIGHT = 0.8  # EXP-08知見: 1.5は「安全を求めすぎて逃げ場を失い逐に衝突」を引き起こすため 0.8 に戻す
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
 REWARD_PROGRESS_WEIGHT = 1.0   # EXP-45: 4.0 -> 1.0 (ACTION_REPEAT=4と積み合わさると実質16倍の爆発を招いた。生存優先に戻す)
+REWARD_CURVE_WEIGHT    = 1.2   # EXP-49: カーブステアリング報酬の重み（新規）
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。
@@ -110,15 +111,25 @@ LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [-3, -3.5, 0.0]
+START_POSE = [-1.82, 0.45, 0.00]
 
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [-2.08, 0.36, 0.00],  # Pose 0
-    [1.80, 0.39, 1.09],  # Pose 1
+    [-1.82, 0.45, 0.00],  # Pose 0
+    [1.96, 0.46, 1.01],  # Pose 1
     [1.16, 3.23, -2.58],  # Pose 2
     [-0.98, 3.48, 2.39],  # Pose 3
+    [-0.35, 2.63, 2.72],  # Pose 4
+    [-1.79, 3.56, -1.97],  # Pose 5
+    [1.76, 0.52, 1.11],  # Pose 6
+    [-0.36, 0.34, -0.02],  # Pose 7
+    [2.26, 2.79, 2.10],  # Pose 8
+    [0.06, 2.60, -3.00],  # Pose 9
+    [-2.08, 1.37, -0.83],  # Pose 10
+    [-1.22, 3.68, -3.11],  # Pose 11
+    [1.70, 3.04, -3.13],  # Pose 12
+
 
 
 
