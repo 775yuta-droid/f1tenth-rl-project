@@ -157,6 +157,19 @@ class MapRenderer:
         # 画面キャプチャ
         self.fig.canvas.draw()
         frame = np.array(self.fig.canvas.buffer_rgba())[:, :, :3]
+
+        # 16の倍数にパディング (ffmpegの macro_block_size 警告対策)
+        h, w, _ = frame.shape
+        if h % 16 != 0 or w % 16 != 0:
+            new_h = ((h + 15) // 16) * 16
+            new_w = ((w + 15) // 16) * 16
+            # 背景色 (#121212) でパディング
+            bg_color = np.array([18, 18, 18], dtype=np.uint8)
+            padded_frame = np.full((new_h, new_w, 3), bg_color, dtype=np.uint8)
+            # 中央に配置、もしくは左上に配置
+            padded_frame[:h, :w, :] = frame
+            frame = padded_frame
+
         return frame
 
 def main():
