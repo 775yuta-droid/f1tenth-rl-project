@@ -14,6 +14,7 @@ from collections import deque
 
 from . import config
 from .rewards import calculate_reward
+from .racing_line import RacingLine
 
 
 class F1TenthRL(gym.Env):
@@ -30,7 +31,20 @@ class F1TenthRL(gym.Env):
             map_path: マップファイルのパス（拡張子なし）
         """
         super(F1TenthRL, self).__init__()
-        self.env = gym.make('f110-v0', map=map_path, map_ext='.pgm', num_agents=1, timestep=config.SIM_TIMESTEP)
+        # シミュレータの初期化 (以前の正常な形式に戻す)
+        self.env = gym.make(
+            'f110-v0', 
+            map=map_path, 
+            map_ext='.pgm', 
+            num_agents=1, 
+            timestep=config.SIM_TIMESTEP
+        )
+        
+        # 物理計算を RK4 に設定 (精度優先)
+        if hasattr(self.env, 'sim'):
+            self.env.sim.integrator = 'rk4'
+        elif hasattr(self.env, 'unwrapped') and hasattr(self.env.unwrapped, 'sim'):
+            self.env.unwrapped.sim.integrator = 'rk4'
         
         # --- シミュレータの解像度アップグレード (1080 -> 1440本) ---
         # ライブラリ側の制限により gym.make で指定できないため、内部クラス属性を直接書き換える
@@ -90,8 +104,23 @@ class F1TenthRL(gym.Env):
         
         # 4. 追加スカラー特徴: [front_dist, min_dist, lr_asymmetry] (3次元)
         self.extra_size = 3 if config.INCLUDE_EXTRA_FEATURES else 0
+
+        # 5. レーシングライン特徴: [cte, heading_err, curvature, progress] (4次元)
+        self.racing_line_size = RacingLine.NUM_FEATURES if config.INCLUDE_RACING_LINE else 0
+        self.racing_line = RacingLine(config.RACING_LINE_PATH) if config.INCLUDE_RACING_LINE else None
+
+        # 6. 前ステップ行動履歴: [prev_steer, prev_speed] (2次元)
+        self.action_hist_size = 2 if config.INCLUDE_ACTION_HISTORY else 0
+        self.prev_action = np.zeros(2, dtype=np.float32)  # [steer_norm, speed_norm]
         
-        total_obs_size = self.lidar_size + self.residual_size + self.state_size + self.extra_size
+        total_obs_size = (
+            self.lidar_size
+            + self.residual_size
+            + self.state_size
+            + self.extra_size
+            + self.racing_line_size
+            + self.action_hist_size
+        )
         
         # 前ステップのLiDAR（Δ=0で初期化）
         self.prev_lidar = np.zeros(self.lidar_size, dtype=np.float32)
@@ -105,6 +134,9 @@ class F1TenthRL(gym.Env):
         
         # 現在のステアリング角 (EXP-20: Delta制御用)
         self.current_steer = 0.0
+        
+        # 前ステップの方向 (角速度計算用)
+        self.prev_heading = 0.0
         
         # アクション空間: [ステアリング, 速度] の2次元
         self.action_space = gym.spaces.Box(
@@ -189,6 +221,19 @@ class F1TenthRL(gym.Env):
         if config.INCLUDE_EXTRA_FEATURES:
             norm_parts.append(np.array([front_feat, min_feat, lr_asymmetry], dtype=np.float32))
 
+        if config.INCLUDE_RACING_LINE and self.racing_line is not None:
+            # 車両位置とヘディングを取得
+            agent_state = self.env.sim.agents[0].state
+            agent_state = np.nan_to_num(agent_state, nan=0.0)
+            rx = float(agent_state[0])   # x [m]
+            ry = float(agent_state[1])   # y [m]
+            ryaw = float(agent_state[4]) # yaw [rad]
+            rl_feat = self.racing_line.get_features(rx, ry, ryaw)
+            norm_parts.append(rl_feat)
+
+        if config.INCLUDE_ACTION_HISTORY:
+            norm_parts.append(self.prev_action.copy())
+
         current_obs = np.concatenate(norm_parts).astype(np.float32)
 
         # フレーム積層処理 (間引きを適用)
@@ -235,6 +280,12 @@ class F1TenthRL(gym.Env):
 
         # バッファのリセット
         self.obs_buffer.clear()
+        self.prev_action = np.zeros(2, dtype=np.float32)
+        self.prev_heading = syaw
+        self.prev_x = sx
+        self.prev_y = sy
+        if self.racing_line is not None:
+            self.racing_line.reset()
 
         return self._get_obs(clean_scans)
 
@@ -271,20 +322,54 @@ class F1TenthRL(gym.Env):
             # CNNが速度や壁の接近をより正確に抽出可能になる。
             processed_obs = self._get_obs(clean_scans)
 
-            # 現在位置を取得
+            # 現在位置、速度、方位を取得
             state = self.env.sim.agents[0].state
             cur_x, cur_y = state[0], state[1]
+            actual_speed = state[3]  # 指令値ではなく、シミュレーター上の実速度を使用
+            cur_heading  = state[4]  # 現在の方位 (yaw)
 
-            # 報酬計算 (毎サブステップ計算し累積)
+            # 角速度 (yaw rate) の計算 (角度の回り込みを考慮)
+            diff_heading = cur_heading - self.prev_heading
+            # 正規化 [-pi, pi]
+            diff_heading = (diff_heading + np.pi) % (2 * np.pi) - np.pi
+            yaw_rate = diff_heading / config.SIM_TIMESTEP
+            self.prev_heading = cur_heading
+
+            # レーシングライン CTE を取得（観測に追加済みの値を報酬にも流用）
+            cte_norm = 0.0
+            curvature = 0.0
+            if self.racing_line is not None:
+                rl_feats = self.racing_line.get_features(
+                    float(cur_x), float(cur_y), float(cur_heading)
+                )
+                cte_norm = float(rl_feats[0])
+                curvature = float(rl_feats[2])
+
             if info is None:
                 info = {}
             info['raw_scan'] = clean_scans
-            step_reward = calculate_reward(clean_scans, action, done, speed, self.prev_x, self.prev_y, cur_x, cur_y)
+            step_reward = calculate_reward(
+                clean_scans, action, done, actual_speed,
+                self.prev_x, self.prev_y, cur_x, cur_y,
+                cte_norm=cte_norm,
+                curvature=curvature,
+                prev_action=self.prev_action,
+                heading=cur_heading,
+                yaw_rate=yaw_rate
+            )
             total_reward += step_reward
 
             # 前位置を更新
             self.prev_x = cur_x
             self.prev_y = cur_y
+
+            # 行動履歴を更新（次ステップの観測に使用）
+            # action[0]=steer[-1,1], action[1]=speed[-1,1] はすでに正規化済み
+            if config.INCLUDE_ACTION_HISTORY:
+                self.prev_action = np.array([
+                    float(action[0]),
+                    float(action[1])
+                ], dtype=np.float32)
 
             if done:
                 break

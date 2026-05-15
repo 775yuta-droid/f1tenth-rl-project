@@ -7,13 +7,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO
+# SB3 classes are imported dynamically via load_algo_class
 from PIL import Image
 import imageio
 import argparse
 from src import config
 from src.f1_env import F1TenthRL
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from src.cnn_policy import Conv1DLidarExtractor
 
 class MapRenderer:
     def __init__(self, map_path, car_params={'length': 0.465, 'width': 0.19}, fig_size=8):
@@ -172,8 +173,22 @@ class MapRenderer:
 
         return frame
 
+def load_algo_class(algo: str):
+    if algo == "ppo":
+        from stable_baselines3 import PPO
+        return PPO
+    elif algo == "sac":
+        from stable_baselines3 import SAC
+        return SAC
+    elif algo == "td3":
+        from stable_baselines3 import TD3
+        return TD3
+    else:
+        raise ValueError(f"Unsupported algorithm: {algo}")
+
 def main():
-    parser = argparse.ArgumentParser(description='F1Tenth PPO Model Viewer')
+    parser = argparse.ArgumentParser(description='F1Tenth Model Viewer')
+    parser.add_argument('--algo', type=str, default='ppo', choices=['ppo', 'sac', 'td3'], help='アルゴリズム名')
     parser.add_argument('--steps', type=int, default=1500, help='最大シミュレーションステップ数')
     parser.add_argument('--model', type=str, default=None, help='モデルファイルのパス(拡張子なし)')
     parser.add_argument('--save', type=str, default=config.GIF_PATH, help='保存先のパス')
@@ -207,8 +222,9 @@ def main():
         target_model += ".zip"
     
     if os.path.exists(target_model):
-        model = PPO.load(target_model, device=config.DEVICE)
-        print(f"モデルをロードしました: {target_model}")
+        AlgoClass = load_algo_class(args.algo)
+        model = AlgoClass.load(target_model, device=config.DEVICE)
+        print(f"[{args.algo.upper()}] モデルをロードしました: {target_model}")
     else:
         print(f"エラー: モデルファイルが見つかりません: {target_model}")
         return

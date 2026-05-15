@@ -117,11 +117,30 @@ graph TD
 | 6 | 時間軸反転バグの修正 | ✅ 完了 |
 | 7 | サブステップ観測更新の実装 | ✅ 完了 |
 | 8 | 時系列処理の更なる強化 (LSTM等) | ⬜ 検討中 |
+| 9 | 残差強化学習 (Residual RL) | ⬜ 計画中 |
+
+---
+
+## ■ 次のフェーズ：残差強化学習 (Residual RL)
+
+学習速度と安定性を劇的に向上させるため、古典制御をベースとした「残差学習」へ移行する。
+
+### 1. コンセプト
+- **基本行動**: Pure Pursuit (純追従制御) がレーシングラインに基づき計算。
+- **RLの役割**: ベース行動に対する「補正値（Residual）」のみを学習。
+- **メリット**: ステップ 0 から完走可能。RLはラップタイム最適化に特化できる。
+
+### 2. 実装項目
+- [ ] `src/controllers/pure_pursuit.py`: ベース制御器の実装
+- [ ] `src/config.py`: `USE_RESIDUAL_RL` およびスケール設定の追加
+- [ ] `src/f1_env.py`: `step()` 内で `final_action = base_action + residual` を計算
+- [ ] `src/rewards.py`: ベースラインに対する向上を評価する報酬の調整
 
 ---
 
 ## ■ 次のアクション
 
+- [ ] 残差強化学習（Residual RL）のプロトタイプ実装
 - [ ] 最新報酬系（EXP-48）での tamoku マップ学習継続
 - [ ] TensorBoard で `explained_variance` (>0.8) と `std` (0.3~0.5) を監視
 - [ ] enjoy_wide.py で走行動画を確認

@@ -56,21 +56,34 @@ class RewardConfig:
     reward_distance_weight: float = 1.0
     reward_progress_weight: float = 1.0
     reward_curve_weight: float    = 1.2   # [Fix-R2] カーブステアリング報酬の重み
+    reward_line_weight: float     = 0.5   # 先生提案: レーシングライン誤差ペナルティ重み
+    reward_smooth_weight: float   = 0.1   # 先生提案: 操作量の急変ペナルティ
+    yaw_rate_penalty_weight: float = 1.5  # [Fix-R4] 角速度ペナルティの重み
     max_speed: float              = 2.5
 
 
-def _load_default_config() -> RewardConfig:
-    return RewardConfig(
-        reward_collision=config.REWARD_COLLISION,
-        reward_survival=config.REWARD_SURVIVAL,
-        reward_front_weight=config.REWARD_FRONT_WEIGHT,
-        reward_speed_weight=config.REWARD_SPEED_WEIGHT,
-        reward_safety_weight=config.REWARD_SAFETY_WEIGHT,
-        reward_distance_weight=config.REWARD_DISTANCE_WEIGHT,
-        reward_progress_weight=config.REWARD_PROGRESS_WEIGHT,
-        reward_curve_weight=config.REWARD_CURVE_WEIGHT,
-        max_speed=config.MAX_SPEED,
-    )
+# グローバルで1回だけ生成して使い回す
+_DEFAULT_REWARD_CFG = None
+
+def _get_cached_config():
+    global _DEFAULT_REWARD_CFG
+    if _DEFAULT_REWARD_CFG is None:
+        _DEFAULT_REWARD_CFG = RewardConfig(
+            reward_collision=config.REWARD_COLLISION,
+            reward_survival=config.REWARD_SURVIVAL,
+            reward_front_weight=config.REWARD_FRONT_WEIGHT,
+            reward_speed_weight=config.REWARD_SPEED_WEIGHT,
+            reward_safety_weight=config.REWARD_SAFETY_WEIGHT,
+            reward_distance_weight=config.REWARD_DISTANCE_WEIGHT,
+            reward_progress_weight=config.REWARD_PROGRESS_WEIGHT,
+            reward_curve_weight=config.REWARD_CURVE_WEIGHT,
+            reward_line_weight=config.REWARD_LINE_WEIGHT,
+            reward_smooth_weight=config.REWARD_SMOOTH_WEIGHT,
+            yaw_rate_penalty_weight=config.YAW_RATE_PENALTY_WEIGHT,
+            max_speed=config.MAX_SPEED,
+        )
+    return _DEFAULT_REWARD_CFG
+
 
 
 def calculate_reward(
@@ -82,9 +95,14 @@ def calculate_reward(
     prev_y: float = 0.0,
     cur_x:  float = 0.0,
     cur_y:  float = 0.0,
+    cte_norm: float = 0.0,    # 先生提案: レーシングライン横誤差 (正規化済み [-1,1])
+    curvature: float = 0.0,   # 先生提案: 前方曲率
+    prev_action: np.ndarray = None,  # 滑らかさ計算用
+    heading: float = 0.0,     # [Fix-R4] 現在の方位 (yaw [rad])
+    yaw_rate: float = 0.0,    # [Fix-R4] 角速度 ([rad/step])
     reward_config: RewardConfig = None,
 ) -> float:
-    cfg = reward_config if reward_config is not None else _load_default_config()
+    cfg = reward_config if reward_config is not None else _get_cached_config()
 
     if done:
         return cfg.reward_collision
@@ -92,23 +110,24 @@ def calculate_reward(
     # ----------------------------------------------------------
     # Hokuyo 270° マスキング
     # s: 1080点, インデックス0=左端(-135°), 540=正面(0°), 1079=右端(+135°)
+    # すでに f1_env.py で 1080点にスライス済み。
     # ----------------------------------------------------------
-    _H_START, _H_END = 180, 1260
-    s = scans[_H_START:_H_END]   # 1080点: -135°〜+135°
-
-    # ----------------------------------------------------------
-    # 前方・斜め距離の計算
-    # s[380:700]: 前方±20° (正面±160/540*135°)
-    # s[540:700]: 前方左 (0°〜+20°)
-    # s[380:540]: 前方右 (-20°〜0°)
-    # ----------------------------------------------------------
-    front_dist = np.min(s[380:700])
-    diag_left  = np.min(s[540:700])   # 前方左斜め
-    diag_right = np.min(s[380:540])   # 前方右斜め
+    s = scans
+    if len(s) > 1080:
+        s = scans[180:1260] # 予備のスライス
+    
+    # 前方・斜め距離の計算 (一括スライスで高速化)
+    # front_slice: 前方±20° (正面540に対して 380〜700)
+    front_slice = s[380:700]
+    front_dist  = np.min(front_slice)
+    diag_right  = np.min(front_slice[:160]) # 右斜め (-20°〜0°)
+    diag_left   = np.min(front_slice[160:]) # 左斜め (0°〜+20°)
 
     # カーブ方向の非対称性 [0, 1]
     lr_sum    = diag_left + diag_right + 1e-6
     asymmetry = abs(diag_left - diag_right) / lr_sum
+
+    speed_factor    = current_speed / cfg.max_speed
 
     # ----------------------------------------------------------
     # 1. 前方空間報酬 [Fix-R1: open_side 廃止]
@@ -126,21 +145,23 @@ def calculate_reward(
     reward = (
         np.clip(effective_front, 0.0, MAP_LIDAR_EFFECTIVE_RANGE)
         / MAP_LIDAR_EFFECTIVE_RANGE
-    ) * cfg.reward_front_weight
+    ) * cfg.reward_front_weight * speed_factor # [Fix-R1] 速度に比例させ、停止中の報酬をカット
 
     # ----------------------------------------------------------
-    # 2. 側面壁距離
+    # 2. 側面壁距離（センターライン削除後は wall_dist のみ安全スコアで使用）
     # ----------------------------------------------------------
-    right_side = np.min(s[0:360])
-    left_side  = np.min(s[720:1080])
+    # right_side / left_side: センターライン報酬削除に伴い不要化したため除去
 
     # ----------------------------------------------------------
-    # 3. 速度報酬
+    # 3. 速度報酬 [先生提案: r_speed = 現在速度 × コース曲率に応じた係数]
     #
-    # safe_brake_dist = v*0.8 + 0.5
-    #   MIN_SPEED=0.3 → 0.74m, MAX_SPEED=2.5 → 2.50m
+    # 曲率が大きい（急カーブ）ほど、高い速度を出すことへの報酬を減らす（またはペナルティ化）。
+    # これによりコーナー手前での自動的な減速を促す。
     # ----------------------------------------------------------
-    speed_factor    = current_speed / cfg.max_speed
+    
+    # 曲率に基づくペナルティ係数 (曲率 0.0 で 1.0, 曲率 5.0 で 0.0 程度)
+    curv_penalty_scale = max(0.0, 1.0 - abs(curvature) * 0.2)
+    
     safe_brake_dist = current_speed * BRAKE_TIME_COEFF + BRAKE_MARGIN
 
     if front_dist < safe_brake_dist:
@@ -148,7 +169,8 @@ def calculate_reward(
         reward      -= speed_factor * cfg.reward_speed_weight * (2.0 + 3.0 * danger_ratio)
         progress_scale = 0.5
     else:
-        reward        += speed_factor * cfg.reward_speed_weight
+        # 先生の式を反映: 曲率が大きいほど速度報酬が減衰する
+        reward        += (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
         progress_scale = 1.0
 
     # ----------------------------------------------------------
@@ -170,37 +192,35 @@ def calculate_reward(
     reward += safety_score * cfg.reward_safety_weight
 
     # ----------------------------------------------------------
-    # 5. センターライン維持
-    #    ※ このマップでは front_dist < 5.0 がほぼ常時成立するため
-    #      center_penalty は実質ゼロ。意図的にそのまま残す。
+    # 5. センターライン維持 → 削除済み（先生指摘: 実質ゼロで混乱の原因）
+    #    旧: front_dist < 5.0 がほぼ常時成立するため center_penalty = 0.0 だった
+    #    → コードを残すことでデバッグ時に誤読するリスクがあるため削除
     # ----------------------------------------------------------
-    total_width  = left_side + right_side
-    center_ratio = abs(left_side - right_side) / (total_width + 1e-6)
-    if front_dist < 5.0:
-        center_penalty = 0.0
-    else:
-        center_penalty = -center_ratio * 3.0
-    reward += center_penalty
+    # 6. 走行距離報酬 [Fix-R4: 前進成分のみを抽出]
+    # ----------------------------------------------------------
+    dx = cur_x - prev_x
+    dy = cur_y - prev_y
+    # 現在の向きに対する射影成分（前進距離）を計算
+    forward_progress = dx * np.cos(heading) + dy * np.sin(heading)
+    forward_progress = max(0.0, forward_progress) # 後退は報酬なし
+    
+    reward += forward_progress * cfg.reward_progress_weight * progress_scale
 
     # ----------------------------------------------------------
-    # 6. 走行距離報酬
+    # 6b. レーシングライン誤差ペナルティ [先生提案: r_line]
+    #
+    # cte_norm: [-1, 1] の横方向誤差。外れるほど大きなペナルティ。
+    # CSVが生成されていない場合は cte_norm=0.0 でスキップされる。
     # ----------------------------------------------------------
-    progress = np.sqrt((cur_x - prev_x) ** 2 + (cur_y - prev_y) ** 2)
-    reward  += progress * cfg.reward_progress_weight * progress_scale
+    r_line = -abs(cte_norm) * cfg.reward_line_weight
+    reward += r_line
 
     # ----------------------------------------------------------
-    # 7. スピンペナルティ [Fix-R4: 係数・閾値強化]
-    #
-    # 旧: threshold=0.02m, slack=0.3, coeff=0.5
-    #      → open_side の高報酬を相殺できず回転ハッキングを許容
-    #
-    # 新: threshold=0.05m, slack=0.2, coeff=2.0
-    #      → open_side廃止後も確実に回転を抑制する二重安全装置
+    # 7. 角速度ペナルティ (スピン防止) [Fix-R4]
     # ----------------------------------------------------------
-    progress_norm = np.clip(progress / 0.05, 0.0, 1.0)   # 0.02m → 0.05m
-    spin_excess   = max(0.0, (1.0 - progress_norm) - 0.2) # slack 0.3 → 0.2
-    spin_penalty  = abs(action[0]) * spin_excess * 2.0    # coeff 0.5 → 2.0
-    reward       -= spin_penalty
+    # 1ステップで 180度(pi rad) 以上回転している場合は異常とみなす
+    yaw_rate_norm = abs(yaw_rate) / np.pi
+    reward -= yaw_rate_norm * cfg.yaw_rate_penalty_weight
 
     # ----------------------------------------------------------
     # 8. カーブステアリング報酬 [Fix-R2: 新規追加]
@@ -216,7 +236,8 @@ def calculate_reward(
     #   正 = 正しい方向へ切っている
     #   負 = 間違った方向へ切っている
     # ----------------------------------------------------------
-    if asymmetry > CURVE_ASYMMETRY_THRESHOLD:
+    # [Fix-R4] 前進が極端に少ない場合はカーブ報酬を与えない（その場旋回対策）
+    if asymmetry > CURVE_ASYMMETRY_THRESHOLD and forward_progress > 0.02:
         open_dir        = 1.0 if diag_left > diag_right else -1.0
         steer_alignment = float(action[0]) * open_dir   # [-1, 1]
         curve_reward    = steer_alignment * asymmetry * cfg.reward_curve_weight
@@ -235,8 +256,12 @@ def calculate_reward(
         reward += (1.0 - abs(action[0])) * 0.2   # 係数 0.1 → 0.2
 
     # ----------------------------------------------------------
-    # 10. 生存報酬
+    # 11. 操作の滑らかさ [先生提案: r_smooth]
     # ----------------------------------------------------------
-    reward += cfg.reward_survival
+    if prev_action is not None:
+        # 前ステップのアクションとの差分（ステアリング、速度）
+        action_diff = np.abs(action - prev_action)
+        # 急激な変化ほど大きなペナルティ
+        reward -= np.sum(action_diff) * cfg.reward_smooth_weight
 
     return reward

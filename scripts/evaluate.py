@@ -10,14 +10,29 @@ import time
 import csv
 import json
 import datetime
-from stable_baselines3 import PPO
+# SB3 classes are imported dynamically via load_algo_class
 from src import config
 from src.f1_env import F1TenthRL
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from src.cnn_policy import Conv1DLidarExtractor
 
+
+def load_algo_class(algo: str):
+    if algo == "ppo":
+        from stable_baselines3 import PPO
+        return PPO
+    elif algo == "sac":
+        from stable_baselines3 import SAC
+        return SAC
+    elif algo == "td3":
+        from stable_baselines3 import TD3
+        return TD3
+    else:
+        raise ValueError(f"Unsupported algorithm: {algo}")
 
 def main():
     parser = argparse.ArgumentParser(description='F1Tenth Model Benchmark Evaluator')
+    parser.add_argument('--algo', type=str, default='ppo', choices=['ppo', 'sac', 'td3'], help='アルゴリズム名')
     parser.add_argument('--episodes', type=int, default=10, help='評価するエピソード数')
     parser.add_argument('--max_steps', type=int, default=2000, help='1エピソードあたりの最大ステップ数')
     parser.add_argument('--model', type=str, default=None, help='モデルファイルのパス(拡張子なし)')
@@ -41,8 +56,9 @@ def main():
 
     if os.path.exists(target_model):
         try:
-            model = PPO.load(target_model, device=config.DEVICE)
-            print(f"モデルをロードしました: {target_model}")
+            AlgoClass = load_algo_class(args.algo)
+            model = AlgoClass.load(target_model, device=config.DEVICE)
+            print(f"[{args.algo.upper()}] モデルをロードしました: {target_model}")
         except ValueError as e:
             print("--- 読み込みエラー ---")
             print(f"モデル '{target_model}' の読み込みに失敗しました。")
