@@ -2,6 +2,7 @@
 改良版：センターライン可視化スクリプト（マップ背景付き）
 
 CSVファイルを読み込み、元のマップ画像（PGM）の上に重ねて表示します。
+座標系の不整合を修正（画像の上下反転を考慮）。
 """
 
 import csv
@@ -14,7 +15,6 @@ from PIL import Image
 
 def load_map_info(csv_path):
     """CSVパスから対応するマップのPGMとYAMLを読み込む"""
-    # map_name_centerline.csv -> map_name
     base_path = csv_path.replace("_centerline.csv", "")
     pgm_path = base_path + ".pgm"
     yaml_path = base_path + ".yaml"
@@ -23,16 +23,13 @@ def load_map_info(csv_path):
         print(f"[Warning] マップファイルが見つかりません: {pgm_path} または {yaml_path}")
         return None, None, None
 
-    # YAMLからメタデータを取得
     with open(yaml_path) as f:
         meta = yaml.safe_load(f)
     
     res = float(meta["resolution"])
-    origin = meta["origin"][:2] # [x, y]
+    origin = meta["origin"][:2]
     
-    # PGM画像を読み込み
     img = np.array(Image.open(pgm_path).convert("L"))
-    
     return img, res, origin
 
 def plot_centerline_with_map(csv_path):
@@ -40,7 +37,6 @@ def plot_centerline_with_map(csv_path):
         print(f"Error: File not found: {csv_path}")
         return
 
-    # CSV読み込み
     xs, ys, hs, ks = [], [], [], []
     with open(csv_path, newline="") as f:
         reader = csv.DictReader(f)
@@ -55,35 +51,30 @@ def plot_centerline_with_map(csv_path):
     heading = np.array(hs)
     curvature = np.array(ks)
 
-    # マップ背景の読み込み
     img, res, origin = load_map_info(csv_path)
 
     plt.figure(figsize=(12, 12))
 
-    # マップを表示
     if img is not None:
-        h, w = img.shape
-        # extent = [left, right, bottom, top]
-        # PGMは上がy=max, 下がy=origin
+        # PGM画像(行0=上)をワールド座標系(下=y_min)に合わせるため上下反転
+        img_flipped = np.flipud(img)
+        h, w = img_flipped.shape
         extent = [
             origin[0], 
             origin[0] + w * res, 
             origin[1], 
             origin[1] + h * res
         ]
-        # マップを薄く表示 (cmap='gray' で白黒、alphaで透明度調整)
-        plt.imshow(img, cmap='gray', extent=extent, origin='lower', alpha=0.6)
+        plt.imshow(img_flipped, cmap='gray', extent=extent, origin='lower', alpha=0.6)
 
-    # センターラインをプロット
-    sc = plt.scatter(x, y, c=np.abs(curvature), cmap='jet', s=10, label='Waypoints', zorder=3)
+    # センターライン
+    sc = plt.scatter(x, y, c=np.abs(curvature), cmap='jet', s=15, label='Waypoints', zorder=3)
     plt.colorbar(sc, label='Curvature [1/m]', shrink=0.8)
+    plt.plot(x, y, 'cyan', alpha=0.4, linewidth=1.5, zorder=2)
 
-    # 線でつなぐ
-    plt.plot(x, y, 'cyan', alpha=0.4, linewidth=1, zorder=2)
-
-    # 開始・終了地点
-    plt.plot(x[0], y[0], 'go', markersize=8, label='Start', zorder=4)
-    plt.plot(x[-1], y[-1], 'ro', markersize=8, label='End', zorder=4)
+    # 開始・終了
+    plt.plot(x[0], y[0], 'go', markersize=10, label='Start', zorder=4)
+    plt.plot(x[-1], y[-1], 'ro', markersize=10, label='End', zorder=4)
 
     # 進行方向
     step = max(1, len(x) // 30)
@@ -98,16 +89,13 @@ def plot_centerline_with_map(csv_path):
     plt.title(f'Centerline on Map: {os.path.basename(csv_path)}')
     plt.legend(loc='upper right')
 
-    # 保存
     output_img = csv_path.replace('.csv', '_with_map.png')
     plt.savefig(output_img, bbox_inches='tight', dpi=200)
     print(f"Plot saved to: {output_img}")
-    
     plt.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("csv_path", type=str, help="Path to the centerline CSV file")
     args = parser.parse_args()
-
     plot_centerline_with_map(args.csv_path)
