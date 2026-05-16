@@ -15,6 +15,7 @@ from src import config
 from src.f1_env import F1TenthRL
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 from src.cnn_policy import Conv1DLidarExtractor
+from scripts.utils.algo_utils import detect_algo, get_algo_class
 
 class MapRenderer:
     def __init__(self, map_path, car_params={'length': 0.465, 'width': 0.19}, fig_size=8):
@@ -173,22 +174,10 @@ class MapRenderer:
 
         return frame
 
-def load_algo_class(algo: str):
-    if algo == "ppo":
-        from stable_baselines3 import PPO
-        return PPO
-    elif algo == "sac":
-        from stable_baselines3 import SAC
-        return SAC
-    elif algo == "td3":
-        from stable_baselines3 import TD3
-        return TD3
-    else:
-        raise ValueError(f"Unsupported algorithm: {algo}")
 
 def main():
     parser = argparse.ArgumentParser(description='F1Tenth Model Viewer')
-    parser.add_argument('--algo', type=str, default='ppo', choices=['ppo', 'sac', 'td3'], help='アルゴリズム名')
+    parser.add_argument('--algo', type=str, default=None, choices=['ppo', 'sac', 'td3'], help='アルゴリズム名 (未指定の場合は自動判別)')
     parser.add_argument('--steps', type=int, default=1500, help='最大シミュレーションステップ数')
     parser.add_argument('--model', type=str, default=None, help='モデルファイルのパス(拡張子なし)')
     parser.add_argument('--save', type=str, default=config.GIF_PATH, help='保存先のパス')
@@ -222,9 +211,23 @@ def main():
         target_model += ".zip"
     
     if os.path.exists(target_model):
-        AlgoClass = load_algo_class(args.algo)
+        # アルゴリズムの判定
+        algo_name = args.algo
+        if algo_name is None:
+            algo_name = detect_algo(target_model)
+            if algo_name:
+                print(f"[ALGO] モデルからアルゴリズムを自動判別しました: {algo_name.upper()}")
+            else:
+                algo_name = "ppo"
+                print(f"[ALGO] アルゴリズムを判別できなかったため PPO を使用します")
+        
+        AlgoClass = get_algo_class(algo_name)
+        if AlgoClass is None:
+            print(f"エラー: 未対応のアルゴリズムです: {algo_name}")
+            return
+            
         model = AlgoClass.load(target_model, device=config.DEVICE)
-        print(f"[{args.algo.upper()}] モデルをロードしました: {target_model}")
+        print(f"[{algo_name.upper()}] モデルをロードしました: {target_model}")
     else:
         print(f"エラー: モデルファイルが見つかりません: {target_model}")
         return

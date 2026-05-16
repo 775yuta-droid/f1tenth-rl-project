@@ -117,7 +117,7 @@ graph TD
 | 6 | 時間軸反転バグの修正 | ✅ 完了 |
 | 7 | サブステップ観測更新の実装 | ✅ 完了 |
 | 8 | 時系列処理の更なる強化 (LSTM等) | ⬜ 検討中 |
-| 9 | 残差強化学習 (Residual RL) | ⬜ 計画中 |
+| 9 | 残差強化学習 (Residual RL) | ✅ 完了 |
 
 ---
 
@@ -131,16 +131,15 @@ graph TD
 - **メリット**: ステップ 0 から完走可能。RLはラップタイム最適化に特化できる。
 
 ### 2. 実装項目
-- [ ] `src/controllers/pure_pursuit.py`: ベース制御器の実装
-- [ ] `src/config.py`: `USE_RESIDUAL_RL` およびスケール設定の追加
-- [ ] `src/f1_env.py`: `step()` 内で `final_action = base_action + residual` を計算
-- [ ] `src/rewards.py`: ベースラインに対する向上を評価する報酬の調整
+- [x] `src/controllers/pure_pursuit.py`: ベース制御器の実装
+- [x] `src/config.py`: `USE_RESIDUAL_RL` およびスケール設定の追加
+- [x] `src/f1_env.py`: `step()` 内で `final_action = base_action + residual` を計算
+- [x] `src/rewards.py`: ベースラインに対する向上を評価する報酬の調整
 
 ---
 
 ## ■ 次のアクション
 
-- [ ] 残差強化学習（Residual RL）のプロトタイプ実装
-- [ ] 最新報酬系（EXP-48）での tamoku マップ学習継続
-- [ ] TensorBoard で `explained_variance` (>0.8) と `std` (0.3~0.5) を監視
-- [ ] enjoy_wide.py で走行動画を確認
+- [ ] 最新報酬系での学習開始 (scripts/train.py)
+- [ ] 走行テスト (scripts/enjoy_wide.py) による Residual RL の挙動確認
+- [ ] TensorBoard で `explained_variance` と `reward` の推移を監視

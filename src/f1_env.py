@@ -113,6 +113,19 @@ class F1TenthRL(gym.Env):
         self.action_hist_size = 2 if config.INCLUDE_ACTION_HISTORY else 0
         self.prev_action = np.zeros(2, dtype=np.float32)  # [steer_norm, speed_norm]
         
+        # 7. 残差強化学習用ベース制御器
+        if config.USE_RESIDUAL_RL:
+            from .controllers.pure_pursuit import PurePursuitController
+            self.pp_controller = PurePursuitController(
+                self.racing_line, 
+                wheelbase=config.CAR_LENGTH * 0.7, # 簡易的な有効ホイールベース
+                lookahead_dist=config.PURE_PURSUIT_LOOKAHEAD
+            )
+            self.residual_rl_size = 2 # [base_steer_norm, base_speed_norm] を観測に追加
+        else:
+            self.pp_controller = None
+            self.residual_rl_size = 0
+
         total_obs_size = (
             self.lidar_size
             + self.residual_size
@@ -120,6 +133,7 @@ class F1TenthRL(gym.Env):
             + self.extra_size
             + self.racing_line_size
             + self.action_hist_size
+            + self.residual_rl_size
         )
         
         # 前ステップのLiDAR（Δ=0で初期化）
@@ -234,6 +248,18 @@ class F1TenthRL(gym.Env):
         if config.INCLUDE_ACTION_HISTORY:
             norm_parts.append(self.prev_action.copy())
 
+        if config.USE_RESIDUAL_RL and self.pp_controller is not None:
+            # 現在のベース行動を観測に追加
+            state = self.env.sim.agents[0].state
+            state = np.nan_to_num(state, nan=0.0)
+            base_steer, base_speed = self.pp_controller.get_base_action(
+                float(state[0]), float(state[1]), float(state[4]), float(state[3]),
+                config.MAX_SPEED, config.MIN_SPEED
+            )
+            base_steer_norm = np.clip(base_steer / self.steer_limit, -1.0, 1.0)
+            base_speed_norm = (base_speed - config.MIN_SPEED) / (config.MAX_SPEED - config.MIN_SPEED) * 2.0 - 1.0
+            norm_parts.append(np.array([base_steer_norm, base_speed_norm], dtype=np.float32))
+
         current_obs = np.concatenate(norm_parts).astype(np.float32)
 
         # フレーム積層処理 (間引きを適用)
@@ -310,7 +336,38 @@ class F1TenthRL(gym.Env):
         # --- Action Repeat ループ ---
         # AIの1回の判断を複数ステップ継続させる
         for _ in range(config.ACTION_REPEAT):
-            obs, _, done, info = self.env.step(np.array([[steer, speed]]))
+            # --- 残差強化学習ロジック ---
+            if config.USE_RESIDUAL_RL and self.pp_controller is not None:
+                state = self.env.sim.agents[0].state
+                state = np.nan_to_num(state, nan=0.0)
+                
+                # 1. ベース行動を取得
+                base_steer, base_speed = self.pp_controller.get_base_action(
+                    float(state[0]), float(state[1]), float(state[4]), float(state[3]),
+                    config.MAX_SPEED, config.MIN_SPEED
+                )
+                
+                # 2. RLの出力を残差（補正値）として適用
+                # action[0]: steer residual [-1, 1] -> [-SCALE, SCALE]
+                # action[1]: speed residual [-1, 1] -> [-SCALE, SCALE]
+                steer_res = float(action[0]) * config.RESIDUAL_STEER_SCALE
+                speed_res = float(action[1]) * config.RESIDUAL_SPEED_SCALE
+                
+                final_steer = np.clip(base_steer + steer_res, -self.steer_limit, self.steer_limit)
+                final_speed = np.clip(base_speed + speed_res, config.MIN_SPEED, config.MAX_SPEED)
+                
+                obs, _, done, info = self.env.step(np.array([[final_steer, final_speed]]))
+            else:
+                # --- 元のロジック (コメントアウト) ---
+                # steer = float(action[0]) * self.steer_limit
+                # speed = config.MIN_SPEED + (float(action[1]) + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
+                # obs, _, done, info = self.env.step(np.array([[steer, speed]]))
+                
+                # 通常のRL（フォールバック）
+                steer = float(action[0]) * self.steer_limit
+                speed = config.MIN_SPEED + (float(action[1]) + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
+                obs, _, done, info = self.env.step(np.array([[steer, speed]]))
+
             raw_scans = obs['scans'][0]
 
             # LiDAR異常値のクリーニング

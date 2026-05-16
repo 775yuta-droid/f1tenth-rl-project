@@ -50,15 +50,19 @@ STRAIGHT_ASYMMETRY_MAX    = 0.15  # この値以下なら「直線」とみな�
 class RewardConfig:
     reward_collision: float       = -200.0
     reward_survival: float        = 0.3
-    reward_front_weight: float    = 3.0
-    reward_speed_weight: float    = 1.5
+    # reward_front_weight: float    = 3.0  # 旧設定
+    reward_front_weight: float    = 1.0  # 残差RLではベースが前方を向くため重みを下げる
+    # reward_speed_weight: float    = 1.5  # 旧設定
+    reward_speed_weight: float    = 3.0  # 速度へのインセンティブを強化
     reward_safety_weight: float   = 0.8
     reward_distance_weight: float = 1.0
-    reward_progress_weight: float = 1.0
-    reward_curve_weight: float    = 1.2   # [Fix-R2] カーブステアリング報酬の重み
-    reward_line_weight: float     = 0.5   # 先生提案: レーシングライン誤差ペナルティ重み
-    reward_smooth_weight: float   = 0.1   # 先生提案: 操作量の急変ペナルティ
-    yaw_rate_penalty_weight: float = 1.5  # [Fix-R4] 角速度ペナルティの重み
+    # reward_progress_weight: float = 1.0  # 旧設定
+    reward_progress_weight: float = 5.0  # 前進へのインセンティブを大幅強化
+    reward_curve_weight: float    = 0.5  # ベースが曲がるため、補正としての重みは下げる
+    reward_line_weight: float     = 0.3  # ラインに縛りすぎないよう少し下げる
+    # reward_smooth_weight: float   = 0.1  # 旧設定
+    reward_smooth_weight: float   = 0.5  # 補正の滑らかさを重視
+    yaw_rate_penalty_weight: float = 2.0  # スピン/ジタバタを厳しく抑制
     max_speed: float              = 2.5
 
 
@@ -166,11 +170,15 @@ def calculate_reward(
 
     if front_dist < safe_brake_dist:
         danger_ratio = 1.0 - (front_dist / safe_brake_dist)
+        # 衝突しそうな場合のペナルティ
         reward      -= speed_factor * cfg.reward_speed_weight * (2.0 + 3.0 * danger_ratio)
         progress_scale = 0.5
     else:
         # 先生の式を反映: 曲率が大きいほど速度報酬が減衰する
-        reward        += (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
+        # reward        += (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
+        
+        # 残差RL最適化: 速度そのものへの報酬を強める
+        reward        += speed_factor * cfg.reward_speed_weight * curv_penalty_scale
         progress_scale = 1.0
 
     # ----------------------------------------------------------

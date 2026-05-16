@@ -91,6 +91,12 @@ MAX_SPEED = float(os.environ.get("MAX_SPEED", "2.5"))   # EXP-25知見: 2.5m/s�
 CAR_LENGTH = 0.465
 CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻し、物理的に狭いコースを曲がれるようにする)
 
+# --- 残差強化学習 (Residual RL) 設定 ---
+USE_RESIDUAL_RL = True     # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
+RESIDUAL_STEER_SCALE = 0.2 # ステアリング補正幅 (rad) - 最大ステアの約半分
+RESIDUAL_SPEED_SCALE = 1.0 # 速度補正幅 (m/s)
+PURE_PURSUIT_LOOKAHEAD = 0.8 # Pure Pursuit の先読み距離 (m)
+
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0
 REWARD_SURVIVAL  = 0.05     # 大幅削減: 立ち止まるメリットを消す

@@ -16,6 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.f1_env import F1TenthRL
 from src import config
 from src.cnn_policy import Conv1DLidarExtractor
+from scripts.utils.algo_utils import get_algo_class
 
 # ============================================================
 # アルゴリズム設定
@@ -24,19 +25,6 @@ from src.cnn_policy import Conv1DLidarExtractor
 # 対応アルゴリズムの一覧
 SUPPORTED_ALGOS = ["ppo", "sac", "td3"]
 
-def load_algo_class(algo: str):
-    """アルゴリズム名に対応するSB3クラスを返す。"""
-    if algo == "ppo":
-        from stable_baselines3 import PPO
-        return PPO
-    elif algo == "sac":
-        from stable_baselines3 import SAC
-        return SAC
-    elif algo == "td3":
-        from stable_baselines3 import TD3
-        return TD3
-    else:
-        raise ValueError(f"未対応のアルゴリズム: {algo}。{SUPPORTED_ALGOS} から選択してください。")
 
 def build_policy_kwargs(lidar_size: int, extra_size: int, frame_stack: int) -> dict:
     """Conv1D抽出器を使う場合のpolicy_kwargsを構築する。"""
@@ -56,7 +44,7 @@ def build_policy_kwargs(lidar_size: int, extra_size: int, frame_stack: int) -> d
 
 def build_model_new(algo: str, env, policy_kwargs: dict):
     """新規学習用モデルを構築して返す。"""
-    AlgoClass = load_algo_class(algo)
+    AlgoClass = get_algo_class(algo)
 
     if algo == "ppo":
         ppo_policy_kwargs = dict(**policy_kwargs, log_std_init=-1.0)
@@ -117,7 +105,7 @@ def build_model_new(algo: str, env, policy_kwargs: dict):
 
 def build_model_resume(algo: str, resume_path: str, env):
     """継続学習用モデルをロードして返す。"""
-    AlgoClass = load_algo_class(algo)
+    AlgoClass = get_algo_class(algo)
     custom_objects = {
         "learning_rate": config.LEARNING_RATE if algo == "ppo" else 1e-4,
         "batch_size": config.PPO_BATCH_SIZE if algo == "ppo" else config.TD3_BATCH_SIZE,
@@ -188,7 +176,8 @@ def main():
         _sample_env.state_size +
         _sample_env.extra_size +
         _sample_env.racing_line_size +
-        _sample_env.action_hist_size
+        _sample_env.action_hist_size +
+        _sample_env.residual_rl_size
     )
     _frame_stack = config.FRAME_STACK
     _sample_env.env.close()
