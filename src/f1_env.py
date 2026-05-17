@@ -16,7 +16,6 @@ from . import config
 from .rewards import calculate_reward
 from .racing_line import RacingLine
 
-
 class F1TenthRL(gym.Env):
     """
     F1Tenth強化学習環境クラス
@@ -361,6 +360,7 @@ class F1TenthRL(gym.Env):
                 final_speed = np.clip(base_speed + speed_res, config.MIN_SPEED, config.MAX_SPEED)
                 
                 obs, _, done, info = self.env.step(np.array([[final_steer, final_speed]]))
+                applied_steer = final_steer / self.steer_limit
             else:
                 # --- 元のロジック (コメントアウト) ---
                 # steer = float(action[0]) * self.steer_limit
@@ -371,6 +371,7 @@ class F1TenthRL(gym.Env):
                 steer = float(action[0]) * self.steer_limit
                 speed = config.MIN_SPEED + (float(action[1]) + 1.0) * (config.MAX_SPEED - config.MIN_SPEED) / 2.0
                 obs, _, done, info = self.env.step(np.array([[steer, speed]]))
+                applied_steer = float(action[0])
 
             raw_scans = obs['scans'][0]
 
@@ -399,11 +400,13 @@ class F1TenthRL(gym.Env):
             # レーシングライン CTE を取得（観測に追加済みの値を報酬にも流用）
             cte_norm = 0.0
             curvature = 0.0
+            heading_err_norm = 0.0
             if self.racing_line is not None:
                 rl_feats = self.racing_line.get_features(
                     float(cur_x), float(cur_y), float(cur_heading)
                 )
                 cte_norm = float(rl_feats[0])
+                heading_err_norm = float(rl_feats[1])
                 curvature = float(rl_feats[2])
 
             if info is None:
@@ -420,10 +423,12 @@ class F1TenthRL(gym.Env):
                 clean_scans, action, done, actual_speed,
                 cur_idx, self.prev_idx, num_wps,
                 cte_norm=cte_norm,
+                heading_err_norm=heading_err_norm,
                 curvature=curvature,
                 prev_action=self.prev_action,
                 heading=cur_heading,
-                yaw_rate=yaw_rate
+                yaw_rate=yaw_rate,
+                applied_steer=applied_steer
             )
             total_reward += step_reward
 
@@ -449,4 +454,3 @@ class F1TenthRL(gym.Env):
         reward_final = np.nan_to_num(float(total_reward), nan=-1.0)
         
         return processed_obs, reward_final, bool(done), info
-

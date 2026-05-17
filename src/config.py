@@ -34,7 +34,7 @@ TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", _profile_threads))
 
 # --- 学習ハイパーパラメータ ---
 # ステアリング+速度の2次元学習は時間がかかるため、300,000〜500,000を推奨
-TOTAL_TIMESTEPS = 5000000
+TOTAL_TIMESTEPS = 3000000
 LEARNING_RATE = 3e-5  # 互換性のため残存。TD3学習率は TD3_LEARNING_RATE で管理。
 
 # --- TD3 ハイパーパラメータ ---
@@ -46,7 +46,7 @@ TD3_ACTION_NOISE_SIGMA = 0.1   # 探索ノイズ。最大アクション幅(±1.
 
 # --- 非推奨: PPO固有パラメータ（参照用に残存） ---
 PPO_BATCH_SIZE = 512
-PPO_N_STEPS = 2048
+PPO_N_STEPS = 1024  # 2048 -> 1024: 最初の更新を早く行い、スピン固定化を防ぐ
 
 # --- ネットワーク構造 ---
 # EXP-47: [128, 128] -> [256, 256] (features_dim=512に対するボトルネック解消。情報の取りこぼしを防ぐ)
@@ -56,7 +56,7 @@ NET_ARCH = [256, 256]
 LIDAR_BEAMS = 1440             # シミュレータの全周ビーム数 (360°分)
 # 270°分を1080点とするため、360°では 1080 * 360 / 270 = 1440点 となる (0.25°刻み)
 LIDAR_DOWNSAMPLE_FACTOR = 5   # EXP-39: 解像度を2倍に(10->5)
-FRAME_STACK = 4                # スタックするフレーム数
+FRAME_STACK = 2                # スタックするフレーム数
 FRAME_SKIP = 4                 # EXP-44: 1 -> 4 (視野を 0.1s -> 0.4s に拡大し、CNNが動きを捉えやすくする)
 N_ENVS = 1                     # TD3はオフポリシーのためリプレイバッファで学習。並列化不要。
 INCLUDE_VEHICLE_STATE = True  # 速度とステアリング角を観測に含める
@@ -74,10 +74,10 @@ LIDAR_MAX_RANGE = 30.0         # クリッピング上限 (m)
 
 # --- CNN ポリシー設定 ---
 # True: Conv1DLidarExtractor + MlpPolicy, False: 従来の MlpPolicy (MLP のみ)
-USE_CNN_POLICY = True
+USE_CNN_POLICY = False
 
 # --- PPO 探索設定（非推奨: TD3ではaction_noiseで探索を制御） ---
-PPO_ENT_COEF = 0.015
+PPO_ENT_COEF = 0.03
 
 # --- 物理設定（マシン性能） ---
 CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
@@ -92,14 +92,15 @@ CAR_LENGTH = 0.465
 CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻し、物理的に狭いコースを曲がれるようにする)
 
 # --- 残差強化学習 (Residual RL) 設定 ---
-USE_RESIDUAL_RL = True     # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
+USE_RESIDUAL_RL = False    # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
+                            # [Fix-V4] スピン原因の切り分けのため一時無効化
 RESIDUAL_STEER_SCALE = 0.2 # ステアリング補正幅 (rad) - 最大ステアの約半分
 RESIDUAL_SPEED_SCALE = 1.0 # 速度補正幅 (m/s)
 PURE_PURSUIT_LOOKAHEAD = 0.8 # Pure Pursuit の先読み距離 (m)
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0
-REWARD_SURVIVAL  = 0.0      # 回転・停滞ハッキング防止のため廃止（進捗のみを評価）
+REWARD_SURVIVAL  = 0.1      # [Fix-V4] 微小生存報酬を復活: PPO勾配を安定させるための最小限の正報酬
 REWARD_FRONT_WEIGHT = 0.0   # 完全廃止: その場回転ハッキング防止
 REWARD_SPEED_WEIGHT = 2.0   # 増量: 実速度へのインセンティブ強化
 REWARD_SAFETY_WEIGHT = 0.8

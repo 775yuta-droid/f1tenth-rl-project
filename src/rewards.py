@@ -95,10 +95,12 @@ def calculate_reward(
     prev_idx: int = 0,
     num_waypoints: int = 1,
     cte_norm: float = 0.0,    # 先生提案: レーシングライン横誤差 (正規化済み [-1,1])
+    heading_err_norm: float = 0.0,  # [Fix-V4] 進行方向誤差 (正規化済み [-1,1])
     curvature: float = 0.0,   # 先生提案: 前方曲率
     prev_action: np.ndarray = None,  # 滑らかさ計算用
     heading: float = 0.0,     # [Fix-R4] 現在の方位 (yaw [rad])
-    yaw_rate: float = 0.0,    # [Fix-R4] 角速度 ([rad/step])
+    yaw_rate: float = 0.0,    # [Fix-R4] 角速度 ([rad/s])
+    applied_steer: float = 0.0, # [Fix-V4] 実際に適用されたステアリング (正規化済み [-1,1])
     reward_config: RewardConfig = None,
 ) -> float:
     cfg = reward_config if reward_config is not None else _get_cached_config()
@@ -173,8 +175,12 @@ def calculate_reward(
         # 先生の式を反映: 曲率が大きいほど速度報酬が減衰する
         reward        += (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
         progress_scale = 1.0
+    elif delta < 0:
+        # [Fix-V4] 逆走・後退時は速度ペナルティを与え、振動による報酬ハッキングを防ぐ
+        reward        -= (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
+        progress_scale = 1.0
     else:
-        # 停滞・後退中は速度報酬なし
+        # 停滞時は速度報酬なし
         progress_scale = 1.0
 
     # ----------------------------------------------------------
@@ -212,17 +218,23 @@ def calculate_reward(
     reward += r_line
 
     # ----------------------------------------------------------
+    # 6c. 進行方向ペナルティ [Fix-V4: スピン・逆走防止]
+    # ----------------------------------------------------------
+    if abs(heading_err_norm) > 0.5: # 90度以上のズレ
+        reward -= 2.0 * abs(heading_err_norm)
+    else:
+        reward -= 0.5 * abs(heading_err_norm)
+
+    # ----------------------------------------------------------
     # 7. 角速度ペナルティ (スピン防止) [Fix-R4]
     # ----------------------------------------------------------
     # 1ステップで 180度(pi rad) 以上回転している場合は異常とみなす
-    # 1ステップあたりの角度変化に換算して正規化 (45度=0.25, 180度=1.0)
-    # yaw_rate [rad/s], config.SIM_TIMESTEP [s/step]
-    rad_per_step = abs(yaw_rate) * config.SIM_TIMESTEP
-    yaw_rate_norm = rad_per_step / np.pi
+    # yaw_rate [rad/s] を基準にペナルティ計算。最大約3.5 rad/s。
+    yaw_rate_norm = np.clip(abs(yaw_rate) / 3.5, 0.0, 1.0)
     reward -= yaw_rate_norm * cfg.yaw_rate_penalty_weight
     
-    # [Fix-V3] 極端な角速度への追加ペナルティ
-    if rad_per_step > np.radians(20): # 1ステップ20度以上
+    # [Fix-V4] 極端な角速度(rad/s)への追加ペナルティ (例: 2.0 rad/s 以上)
+    if abs(yaw_rate) > 2.0:
         reward -= 2.0
 
     # ----------------------------------------------------------
@@ -242,7 +254,7 @@ def calculate_reward(
     # [Fix-R4] 前進が極端に少ない場合はカーブ報酬を与えない（その場旋回対策）
     if asymmetry > CURVE_ASYMMETRY_THRESHOLD and delta > 0:
         open_dir        = 1.0 if diag_left > diag_right else -1.0
-        steer_alignment = float(action[0]) * open_dir   # [-1, 1]
+        steer_alignment = applied_steer * open_dir   # [-1, 1]
         curve_reward    = steer_alignment * asymmetry * cfg.reward_curve_weight
         reward         += curve_reward
 
@@ -257,7 +269,7 @@ def calculate_reward(
     # ----------------------------------------------------------
     # [Fix-V3] 前進中かつ直線の時だけ直進ボーナスを与える
     if delta > 0 and front_dist > 1.0 and asymmetry < STRAIGHT_ASYMMETRY_MAX:
-        reward += (1.0 - abs(action[0])) * 0.2
+        reward += (1.0 - abs(applied_steer)) * 0.2
 
     # ----------------------------------------------------------
     # 11. 操作の滑らかさ [先生提案: r_smooth]
