@@ -22,3 +22,4 @@ numpy
 torch
 onnx
 onnxruntime
+protobuf<4
