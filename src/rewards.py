@@ -50,19 +50,15 @@ STRAIGHT_ASYMMETRY_MAX    = 0.15  # この値以下なら「直線」とみな�
 class RewardConfig:
     reward_collision: float       = -200.0
     reward_survival: float        = 0.3
-    # reward_front_weight: float    = 3.0  # 旧設定
-    reward_front_weight: float    = 1.0  # 残差RLではベースが前方を向くため重みを下げる
-    # reward_speed_weight: float    = 1.5  # 旧設定
-    reward_speed_weight: float    = 3.0  # 速度へのインセンティブを強化
+    reward_front_weight: float    = 3.0
+    reward_speed_weight: float    = 1.5
     reward_safety_weight: float   = 0.8
     reward_distance_weight: float = 1.0
-    # reward_progress_weight: float = 1.0  # 旧設定
-    reward_progress_weight: float = 5.0  # 前進へのインセンティブを大幅強化
-    reward_curve_weight: float    = 0.5  # ベースが曲がるため、補正としての重みは下げる
-    reward_line_weight: float     = 0.3  # ラインに縛りすぎないよう少し下げる
-    # reward_smooth_weight: float   = 0.1  # 旧設定
-    reward_smooth_weight: float   = 0.5  # 補正の滑らかさを重視
-    yaw_rate_penalty_weight: float = 2.0  # スピン/ジタバタを厳しく抑制
+    reward_progress_weight: float = 1.0
+    reward_curve_weight: float    = 1.2   # [Fix-R2] カーブステアリング報酬の重み
+    reward_line_weight: float     = 0.5   # 先生提案: レーシングライン誤差ペナルティ重み
+    reward_smooth_weight: float   = 0.1   # 先生提案: 操作量の急変ペナルティ
+    yaw_rate_penalty_weight: float = 1.5  # [Fix-R4] 角速度ペナルティの重み
     max_speed: float              = 2.5
 
 
@@ -95,10 +91,9 @@ def calculate_reward(
     action,
     done: bool,
     current_speed: float,
-    prev_x: float = 0.0,
-    prev_y: float = 0.0,
-    cur_x:  float = 0.0,
-    cur_y:  float = 0.0,
+    cur_idx: int = 0,         # [Fix-Reward] センターライン進捗への移行
+    prev_idx: int = 0,
+    num_waypoints: int = 1,
     cte_norm: float = 0.0,    # 先生提案: レーシングライン横誤差 (正規化済み [-1,1])
     curvature: float = 0.0,   # 先生提案: 前方曲率
     prev_action: np.ndarray = None,  # 滑らかさ計算用
@@ -134,22 +129,23 @@ def calculate_reward(
     speed_factor    = current_speed / cfg.max_speed
 
     # ----------------------------------------------------------
-    # 1. 前方空間報酬 [Fix-R1: open_side 廃止]
-    #
-    # 旧: effective_front = max(front_dist, open_side * 0.8)
-    #      斜めを向くだけで open_side が大きくなり高報酬
-    #      → 回転し続けることで常に高報酬を得られる（報酬ハッキング）
-    #
-    # 新: effective_front = front_dist
-    #      真正面に空間があることを要求
-    #      → 回転しても前方は壁になるため報酬ハッキングを根絶
+    # 0. 進捗計算（周回を考慮） [Fix-V3: 順序を最優先に移動]
     # ----------------------------------------------------------
-    effective_front = front_dist
+    # 進捗計算（ゼロ除算/剰余計算エラーを防止）
+    safe_num_wps = max(1, num_waypoints)
+    delta = (cur_idx - prev_idx) % safe_num_wps
+    if delta > safe_num_wps // 2:
+        delta -= safe_num_wps
 
-    reward = (
-        np.clip(effective_front, 0.0, MAP_LIDAR_EFFECTIVE_RANGE)
-        / MAP_LIDAR_EFFECTIVE_RANGE
-    ) * cfg.reward_front_weight * speed_factor # [Fix-R1] 速度に比例させ、停止中の報酬をカット
+    # ----------------------------------------------------------
+    # 0b. 生存報酬 [Fix-V3: 生存報酬を追加]
+    # ----------------------------------------------------------
+    reward = cfg.reward_survival
+
+    # ----------------------------------------------------------
+    # 1. 前方空間報酬 [削除]
+    # ----------------------------------------------------------
+    r_front = 0.0  # 完全廃止
 
     # ----------------------------------------------------------
     # 2. 側面壁距離（センターライン削除後は wall_dist のみ安全スコアで使用）
@@ -170,15 +166,15 @@ def calculate_reward(
 
     if front_dist < safe_brake_dist:
         danger_ratio = 1.0 - (front_dist / safe_brake_dist)
-        # 衝突しそうな場合のペナルティ
         reward      -= speed_factor * cfg.reward_speed_weight * (2.0 + 3.0 * danger_ratio)
         progress_scale = 0.5
-    else:
+    elif delta > 0:
+        # [Fix-V3] 前進している場合のみ速度報酬を与える
         # 先生の式を反映: 曲率が大きいほど速度報酬が減衰する
-        # reward        += (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
-        
-        # 残差RL最適化: 速度そのものへの報酬を強める
-        reward        += speed_factor * cfg.reward_speed_weight * curv_penalty_scale
+        reward        += (speed_factor * curv_penalty_scale) * cfg.reward_speed_weight
+        progress_scale = 1.0
+    else:
+        # 停滞・後退中は速度報酬なし
         progress_scale = 1.0
 
     # ----------------------------------------------------------
@@ -186,16 +182,15 @@ def calculate_reward(
     # ----------------------------------------------------------
     wall_dist = np.min(s)
 
+    # [Fix-V3] 安全スコアを「減点専用」に変更
+    # コース中央にいるだけで加点されるハッキングを防止
     if wall_dist < MAP_WALL_DIST_DANGER:
         safety_score = -1.0
     elif wall_dist < MAP_WALL_DIST_P50:
         t = (wall_dist - MAP_WALL_DIST_DANGER) / (MAP_WALL_DIST_P50 - MAP_WALL_DIST_DANGER)
         safety_score = -1.0 + t          # [-1.0, 0.0]
-    elif wall_dist < MAP_WALL_DIST_P75:
-        t = (wall_dist - MAP_WALL_DIST_P50) / (MAP_WALL_DIST_P75 - MAP_WALL_DIST_P50)
-        safety_score = t                  # [0.0, 1.0]
     else:
-        safety_score = 1.0
+        safety_score = 0.0               # 安全圏では 0.0 (加点なし)
 
     reward += safety_score * cfg.reward_safety_weight
 
@@ -204,15 +199,8 @@ def calculate_reward(
     #    旧: front_dist < 5.0 がほぼ常時成立するため center_penalty = 0.0 だった
     #    → コードを残すことでデバッグ時に誤読するリスクがあるため削除
     # ----------------------------------------------------------
-    # 6. 走行距離報酬 [Fix-R4: 前進成分のみを抽出]
-    # ----------------------------------------------------------
-    dx = cur_x - prev_x
-    dy = cur_y - prev_y
-    # 現在の向きに対する射影成分（前進距離）を計算
-    forward_progress = dx * np.cos(heading) + dy * np.sin(heading)
-    forward_progress = max(0.0, forward_progress) # 後退は報酬なし
-    
-    reward += forward_progress * cfg.reward_progress_weight * progress_scale
+    # delta は正なら前進、負なら後退
+    reward += float(delta) * cfg.reward_progress_weight * progress_scale
 
     # ----------------------------------------------------------
     # 6b. レーシングライン誤差ペナルティ [先生提案: r_line]
@@ -227,8 +215,15 @@ def calculate_reward(
     # 7. 角速度ペナルティ (スピン防止) [Fix-R4]
     # ----------------------------------------------------------
     # 1ステップで 180度(pi rad) 以上回転している場合は異常とみなす
-    yaw_rate_norm = abs(yaw_rate) / np.pi
+    # 1ステップあたりの角度変化に換算して正規化 (45度=0.25, 180度=1.0)
+    # yaw_rate [rad/s], config.SIM_TIMESTEP [s/step]
+    rad_per_step = abs(yaw_rate) * config.SIM_TIMESTEP
+    yaw_rate_norm = rad_per_step / np.pi
     reward -= yaw_rate_norm * cfg.yaw_rate_penalty_weight
+    
+    # [Fix-V3] 極端な角速度への追加ペナルティ
+    if rad_per_step > np.radians(20): # 1ステップ20度以上
+        reward -= 2.0
 
     # ----------------------------------------------------------
     # 8. カーブステアリング報酬 [Fix-R2: 新規追加]
@@ -245,7 +240,7 @@ def calculate_reward(
     #   負 = 間違った方向へ切っている
     # ----------------------------------------------------------
     # [Fix-R4] 前進が極端に少ない場合はカーブ報酬を与えない（その場旋回対策）
-    if asymmetry > CURVE_ASYMMETRY_THRESHOLD and forward_progress > 0.02:
+    if asymmetry > CURVE_ASYMMETRY_THRESHOLD and delta > 0:
         open_dir        = 1.0 if diag_left > diag_right else -1.0
         steer_alignment = float(action[0]) * open_dir   # [-1, 1]
         curve_reward    = steer_alignment * asymmetry * cfg.reward_curve_weight
@@ -260,8 +255,9 @@ def calculate_reward(
     # 新: if front_dist > 1.0 AND asymmetry < STRAIGHT_ASYMMETRY_MAX
     #      → コースが直線の時だけ直進ボーナスを与える
     # ----------------------------------------------------------
-    if front_dist > 1.0 and asymmetry < STRAIGHT_ASYMMETRY_MAX:
-        reward += (1.0 - abs(action[0])) * 0.2   # 係数 0.1 → 0.2
+    # [Fix-V3] 前進中かつ直線の時だけ直進ボーナスを与える
+    if delta > 0 and front_dist > 1.0 and asymmetry < STRAIGHT_ASYMMETRY_MAX:
+        reward += (1.0 - abs(action[0])) * 0.2
 
     # ----------------------------------------------------------
     # 11. 操作の滑らかさ [先生提案: r_smooth]

@@ -29,6 +29,11 @@ class RacingLine:
 
     NUM_FEATURES = 4  # [cte, heading_err, curvature, progress]
 
+    @property
+    def num_waypoints(self) -> int:
+        return len(self.xy)
+
+
     def __init__(self, csv_path: str, lookahead: int = 5):
         self.csv_path  = csv_path
         self.lookahead = lookahead
@@ -103,6 +108,10 @@ class RacingLine:
 
         self._last_idx = idx
         return idx
+
+    def get_nearest_index(self, x: float, y: float) -> int:
+        """現在位置に最も近いウェイポイントのインデックスを返す"""
+        return self._find_nearest(x, y)
 
     # ------------------------------------------------------------------
     def get_features(

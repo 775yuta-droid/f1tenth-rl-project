@@ -139,7 +139,10 @@ class F1TenthRL(gym.Env):
         # 前ステップのLiDAR（Δ=0で初期化）
         self.prev_lidar = np.zeros(self.lidar_size, dtype=np.float32)
 
-        # 前ステップの車両位置（走行距離報酬用）
+        # 前ステップのウェイポイントインデックス（センターライン進捗用）
+        self.prev_idx = 0
+        
+        # 前ステップの車両位置（デバッグ/互換用）
         self.prev_x = 0.0
         self.prev_y = 0.0
         
@@ -312,6 +315,7 @@ class F1TenthRL(gym.Env):
         self.prev_y = sy
         if self.racing_line is not None:
             self.racing_line.reset()
+            self.prev_idx = self.racing_line.get_nearest_index(sx, sy)
 
         return self._get_obs(clean_scans)
 
@@ -405,9 +409,16 @@ class F1TenthRL(gym.Env):
             if info is None:
                 info = {}
             info['raw_scan'] = clean_scans
+            # インデックスベースの進捗報酬計算
+            cur_idx = self.prev_idx
+            num_wps = 1
+            if self.racing_line is not None:
+                cur_idx = self.racing_line.get_nearest_index(float(cur_x), float(cur_y))
+                num_wps = self.racing_line.num_waypoints
+
             step_reward = calculate_reward(
                 clean_scans, action, done, actual_speed,
-                self.prev_x, self.prev_y, cur_x, cur_y,
+                cur_idx, self.prev_idx, num_wps,
                 cte_norm=cte_norm,
                 curvature=curvature,
                 prev_action=self.prev_action,
@@ -415,6 +426,9 @@ class F1TenthRL(gym.Env):
                 yaw_rate=yaw_rate
             )
             total_reward += step_reward
+
+            # インデックスを更新
+            self.prev_idx = cur_idx
 
             # 前位置を更新
             self.prev_x = cur_x

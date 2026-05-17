@@ -99,12 +99,12 @@ PURE_PURSUIT_LOOKAHEAD = 0.8 # Pure Pursuit の先読み距離 (m)
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0
-REWARD_SURVIVAL  = 0.05     # 大幅削減: 立ち止まるメリットを消す
-REWARD_FRONT_WEIGHT = 1.0   # 削減: 広い空間を向くだけのボーナスを抑制
+REWARD_SURVIVAL  = 0.0      # 回転・停滞ハッキング防止のため廃止（進捗のみを評価）
+REWARD_FRONT_WEIGHT = 0.0   # 完全廃止: その場回転ハッキング防止
 REWARD_SPEED_WEIGHT = 2.0   # 増量: 実速度へのインセンティブ強化
 REWARD_SAFETY_WEIGHT = 0.8
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
-REWARD_PROGRESS_WEIGHT = 10.0  # 大幅増量: 前進することを主目的とする
+REWARD_PROGRESS_WEIGHT = 10.0  # 前進の価値を大幅に強化 (インデックスベース)
 REWARD_CURVE_WEIGHT    = 1.2   # EXP-49: カーブステアリング報酬の重み（新規）
 REWARD_LINE_WEIGHT     = 0.5   # 先生提案: レーシングライン誤差ペナルティ（r_line）の重み
 REWARD_SMOOTH_WEIGHT   = 0.1   # 先生提案: 操作量の急変ペナルティ（r_smooth）の重み
