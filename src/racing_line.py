@@ -34,7 +34,7 @@ class RacingLine:
         return len(self.xy)
 
 
-    def __init__(self, csv_path: str, lookahead: int = 5):
+    def __init__(self, csv_path: str, lookahead: int = 12):  # [Fix-Curve4] 5→12: S字第2カーブを曲率特徴量に先読み
         self.csv_path  = csv_path
         self.lookahead = lookahead
         self._loaded   = False

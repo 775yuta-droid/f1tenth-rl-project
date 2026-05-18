@@ -42,7 +42,8 @@ BRAKE_MARGIN     = 0.5   # 余裕距離 [m]
 # カーブ検出閾値
 # asymmetry = |diag_left - diag_right| / (diag_left + diag_right)
 # 0.0 = 完全直線, 1.0 = 完全カーブ
-CURVE_ASYMMETRY_THRESHOLD = 0.20
+# [Fix-Curve1] 0.20→0.10: S字の弱い非対称性でも検出できるよう引き下げ
+CURVE_ASYMMETRY_THRESHOLD = 0.10
 STRAIGHT_ASYMMETRY_MAX    = 0.15  # この値以下なら「直線」とみなす
 
 
@@ -163,8 +164,19 @@ def calculate_reward(
     
     # 曲率に基づくペナルティ係数 (曲率 0.0 で 1.0, 曲率 5.0 で 0.0 程度)
     curv_penalty_scale = max(0.0, 1.0 - abs(curvature) * 0.2)
-    
-    safe_brake_dist = current_speed * BRAKE_TIME_COEFF + BRAKE_MARGIN
+
+    # ----------------------------------------------------------
+    # [Fix-Curve2] カーブ予見ブレーキ（先生改善①）
+    #
+    # 斜め前方の左右非対称性（asymmetry）でカーブ入口を事前検知し、
+    # safe_brake_dist を延長する。
+    #   直線 (asymmetry≈0.0): curve_factor = 1.0 （変化なし）
+    #   急カーブ (asymmetry≈1.0): curve_factor = 3.0 （3倍の制動距離）
+    # これにより「front_distが急減する前」にブレーキ報酬が発動し、
+    # コーナー手前での自然な減速を学習させる。
+    # ----------------------------------------------------------
+    curve_factor    = 1.0 + asymmetry * 2.0
+    safe_brake_dist = (current_speed * BRAKE_TIME_COEFF + BRAKE_MARGIN) * curve_factor
 
     if front_dist < safe_brake_dist:
         danger_ratio = 1.0 - (front_dist / safe_brake_dist)
@@ -230,11 +242,18 @@ def calculate_reward(
     # ----------------------------------------------------------
     # 1ステップで 180度(pi rad) 以上回転している場合は異常とみなす
     # yaw_rate [rad/s] を基準にペナルティ計算。最大約3.5 rad/s。
+    #
+    # [Fix-Curve3] S字カーブの「切り返し」はyaw_rateを一時的に高くする正当な動作。
+    # カーブ時（asymmetry 大）はペナルティ係数を緩和し、正しい切り返しを阻害しない。
+    #   直線 (asymmetry≈0.0): curve_yaw_relief = 1.0 （全ペナルティ）
+    #   急カーブ (asymmetry≈0.33): curve_yaw_relief = 0.30 （70%緩和）
+    curve_yaw_relief = max(0.3, 1.0 - asymmetry * 2.1)
     yaw_rate_norm = np.clip(abs(yaw_rate) / 3.5, 0.0, 1.0)
-    reward -= yaw_rate_norm * cfg.yaw_rate_penalty_weight
-    
+    reward -= yaw_rate_norm * cfg.yaw_rate_penalty_weight * curve_yaw_relief
+
     # [Fix-V4] 極端な角速度(rad/s)への追加ペナルティ (例: 2.0 rad/s 以上)
-    if abs(yaw_rate) > 2.0:
+    # [Fix-Curve3] カーブ時（asymmetry > 0.25）は免除 → S字切り返しに必要な角速度
+    if abs(yaw_rate) > 2.0 and asymmetry < 0.25:
         reward -= 2.0
 
     # ----------------------------------------------------------
