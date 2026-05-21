@@ -1,127 +1,143 @@
 # 🏎️ F1Tenth AI Racing Project
-**Deep Reinforcement Learning × LiDAR-based Autonomous Racing**
 
-F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速かつ安定した自律走行を実現するAI（PPO）を開発するプロジェクトです。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Status: Active](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
+[![Framework: Stable Baselines3](https://img.shields.io/badge/RL-Stable_Baselines3-purple.svg)]()
+
+> **Deep Reinforcement Learning × LiDAR-based Autonomous Racing**
+>
+> F1Tenthシミュレータ上で、**LiDARセンサーのみ**を頼りに高速かつ安定した自律走行を実現するAI（PPOアルゴリズム）を開発するプロジェクトです。
+> 単なるシミュレーション上のスコアアタックにとどまらず、**実機（Jetson搭載車両）へのデプロイ（Sim-to-Real）**を強く意識した一貫性のあるワークフローを提供します。
+
+---
+
+## ✨ 技術的ハイライト (Key Features)
+
+本プロジェクトでは、より高度な空間認識と実機適応を目指し、以下の独自拡張を施しています。
+
+*   🧠 **1D-CNN (Conv1D) ポリシー**: 従来のMLPの限界を突破。LiDAR点群の空間的な連続性と、フレーム積層による時間的な動きを正確に抽出。
+*   🎯 **Sim-to-Real 観測**: 360°のデータを実機(Hokuyo URG)同様の **270°マスク** に制限して学習。
+*   🔍 **高解像度LiDAR**: 1440本のビームを処理し、微細な壁の凹凸や狭いコーナーの隙間を認識。
+*   ⏱️ **サブステップ観測更新**: `ACTION_REPEAT` 中のサブステップごとに観測バッファを更新し、極めて高い時間分解能で加速・減速を制御。
+*   📊 **統計的報酬設計**: マップ固有の壁距離の中央値（p50/p75）を基準とした正規化により、様々な道幅のコースに柔軟に適応。
+
+---
+
+## 🏗️ システムアーキテクチャ
+
+システムは機能ごとに疎結合にモジュール化されており、新しいアイデア（報酬関数やネットワーク構造）の導入が容易です。
+
+```mermaid
+graph TD
+    subgraph F1Tenth Environment
+        A[f1_env.py<br/>Gym Wrapper] -- 観測データ<br/>(LiDAR+State) --> B[cnn_policy.py<br/>Conv1D Extractor]
+        B -- 行動指令<br/>(Steer, Speed) --> A
+        C[rewards.py<br/>Reward Logic] -- 報酬計算 --> A
+    end
+    subgraph Configuration
+        D[config.py<br/>Global Settings] --> A
+        D --> C
+    end
+    subgraph Data & Logs
+        F[my_maps/<br/>Maps] --> A
+        B -.-> G[models/<br/>ONNX / ZIP]
+    end
+```
+
+---
+
+## 📂 ディレクトリ構成
+
+```text
+f1tenth-rl-project/
+├── scripts/
+│   ├── train.py          # 学習実行スクリプト
+│   ├── evaluate.py       # モデル評価スクリプト
+│   └── enjoy_wide.py     # 走行動画（mp4/gif）生成スクリプト
+├── src/
+│   ├── f1_env.py         # F1Tenth Gym 環境ラッパー（前処理・積層）
+│   ├── rewards.py        # 報酬関数定義ロジック
+│   ├── cnn_policy.py     # カスタムCNN（Conv1D）ネットワーク構造
+│   └── config.py         # ハイパーパラメータ・環境設定マスター
+├── my_maps/              # カスタムマップデータ (.pgm, .yaml)
+├── EXPERIMENT_PLAN.md    # 実験ログ・考察・知見の蓄積（最重要ドキュメント）
+├── EXPERIMENT_REPORT.md  # 開発フェーズごとの総括レポート
+└── docker-compose.yml    # GPU対応コンテナ環境定義
+```
 
 ---
 
 ## 🚀 クイックスタート (Docker)
 
-別のPCへ移行した後、以下の手順で最短で実験を再開できます。
+Dockerを使用することで、煩雑なCUDA環境の構築をスキップし、最短3分で学習を開始できます。
 
 ### 1. 環境の起動
 ```bash
-# イメージのビルドとコンテナの起動
+# イメージのビルド(初回のみ)
+docker compose build
+
+# コンテナの起動
 docker compose up -d
 
-# コンテナ内に入る
+# コンテナ内シェルへのアクセス
 docker compose exec f1-sim-latest bash
 ```
 
-### 2. 学習の実行 (EXP-34の例)
+### 2. 学習の実行
+最新の設定（CNNモデル）で学習を開始します。
 ```bash
-# 実験用ディレクトリへ移動し実行
-bash scripts/experiments/run_exp34.sh
+python3 scripts/train.py --model my_first_model --steps 5000000
 ```
+別のターミナルで `tensorboard --logdir logs --host localhost` を実行すれば、ブラウザからリアルタイムで進捗を確認できます。
 
-### 3. 進捗確認
-別のターミナルで TensorBoard を起動してブラウザ（`localhost:6006`）で確認できます。
+### 3. 評価と可視化
+学習したモデルの完走率をテストし、走行の様子を動画化します。
 ```bash
-tensorboard --logdir logs --host localhost
+# 20エピソードのテスト走行
+python3 scripts/evaluate.py --model my_first_model --episodes 20
+
+# 走行動画の生成
+python3 scripts/enjoy_wide.py --model my_first_model --save /workspace/gif/my_first_model.mp4
 ```
 
----
+## ✅ 評価スクリプトの役割と限界
+`scripts/evaluate.py` はシミュレーション環境内での評価を行うベンチマークスクリプトです。
 
-## 📋 プロジェクト概要
+*   これは「実機での挙動を保証するもの」ではありません。
+*   実機では LiDAR のノイズ、通信遅延、モーター応答、バッテリー状態、実物体の反射特性などがシミュレーションと異なります。
+*   `evaluate.py` は `DummyVecEnv` を使い、環境内の完走率・衝突率・平均速度を測定します。
+*   `deterministic=True` で動作するため、複数実行して安定性を確認してください。
+*   モデルの観測次元が学習時と一致していないとロードに失敗することがあります。
 
-本プロジェクトでは、段階的な実験を通じて、F1Tenth車両の限界性能を引き出す学習を進めています。
-
-### 🎯 技術的アプローチ
-- **LiDARダウンサンプリング**: 1080点 → 108点（または **1440点 → 216点**）に圧縮。さらに実機（Hokuyo）に合わせ観測範囲を **270°** に制限することで Sim-to-Real ギャップを最小化。
-- **フレーム積層 (Frame Stacking)**: 複数フレームを重ねることで、時間的な情報の変化（接近速度等）をAIに認識させる。
-- **物理エンジンへの介入**: 車両寸法や最低速度制限（`MIN_SPEED`）、**制御周波数（40Hz）**を実機に合わせ、シミュレーションと現実の乖離を最小化。
-
----
-
-## 📁 プロジェクト構成
-
-```text
-f1tenth-rl-project/
-├── src/                # ⭐ コアロジック
-│   ├── f1_env.py       # F1Tenth Gym 環境ラッパー
-│   ├── rewards.py      # 報酬計算ロジック
-│   ├── config.py       # 全体設定
-│   └── profiles.py     # PC別ハードウェア設定
-├── scripts/            # 🛠️ ツール
-│   ├── experiments/    # 🧪 個別実験スクリプト (run_expXX.sh)
-│   ├── train.py        # 学習メイン
-│   ├── evaluate.py     # 評価（CSV/JSON保存）
-│   └── enjoy_wide.py   # 動画/軌跡生成
-├── my_maps/            # 🗺️ カスタムマップ (.pgm/.yaml)
-├── EXPERIMENT_PLAN.md   # 📓 実験マスタープラン (Source of Truth)
-├── EXPERIMENT_REPORT.md # 📈 実験履歴と知見集
-├── models/             # 💾 学習済みモデル (.zip) ※Git管理外
-└── logs/               # 📊 TensorBoardログ ※Git管理外
-```
+## ⚠️ 実機移行で優先して検証すべきこと
+1. まずは低速・安全設定で実機テストする。安定性が確認できるまでは速度を上げない。
+2. 実機での評価は次の順番で行う。
+    - LiDAR と VESC 間の ROS 2 通信確認
+    - 推論レイテンシの実測（Jetson で 20Hz 以上維持できるか）
+    - 低速周回テストでの安定性
+    - 緊急停止システムの動作確認
+3. 実機では「シミュレーションで正しい挙動でも、センサー特性や物理挙動の差異で失敗する」可能性が常にある。
+4. 安定して速く走らせるには、完走率と平均速度の両方を見て、速度だけ高いモデルを過信しない。
 
 ---
 
-## ⚙️ 主要な環境変数
-`config.py` を通じて、以下の環境変数で動作を制御できます。
+## 👨‍💻 開発者向けガイド
 
-| 変数名 | 説明 | 設定例 |
-| :--- | :--- | :--- |
-| `TRAINING_PROFILE` | ハードウェア設定 | `laptop` / `desktop` / `auto` |
-| `MAP_PATH` | マップのパス（拡張子なし） | `/workspace/my_maps/testmap-0416` |
-| `MIN_SPEED` | 車両の最低速度制限 | `0.3` |
-| `MAX_SPEED` | 車両の最高速度制限 | `2.0` |
+*   **報酬関数のカスタマイズ**: `src/rewards.py` を編集します。現在はマップの実測統計値に基づく正規化を行っています。新しいマップを追加する際は、マップ幅に応じた定数の見直しを推奨します。
+*   **過去の知見の活用**: 新しい実験を始める前に、必ず [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) を一読してください。過去に経験した「局所解の性質」「報酬ハッキングの事例」などが詳細に記録されています。
 
 ---
 
-## 📦 モデルの管理と移行
-モデルファイル（`models/*.zip`）はファイルサイズが大きいため Git 管理から除外されています。別のPCへ移行する場合は、以下のファイルを優先的に手動コピーしてください。
+## ⚠️ 既知のトラブルシューティング・注意事項
 
-1.  **`ppo_10M_exp25_fast_stable.zip`**: 広域マップ完走100%のベース。
-2.  **`ppo_exp33b_p3_narrow_normal.zip`**: 狭域マップ適応済みのベース。
-
----
-
-## 🛠️ ONNX変換 (実機デプロイ用)
-
-学習したモデルを実機（Jetson等）で軽量に動作させるため、ONNX形式への変換をサポートしています。
-
-### 1. ONNX形式への変換
-`scripts/export/convert_ppo_to_onnx.py` を使用して、SB3の `.zip` モデルを `.onnx` に変換します。
-```bash
-python scripts/export/convert_ppo_to_onnx.py --model models/ppo_expXX.zip
-```
-※ デフォルトでは同じディレクトリに `.onnx` ファイルが生成されます。`--output` で出力先を指定可能です。
-
-### 2. 変換の検証
-変換後のモデルが元のモデルと同じ推論結果を出すか確認します。
-```bash
-python scripts/export/verify_onnx.py --model models/ppo_expXX.zip --output models/ppo_expXX.onnx
-```
-`Success: ONNX outputs match SB3 outputs!` と表示されれば成功です。
-
-### ⚠️ 注意点
-- **観測次元**: 変換時の観測次元（LiDAR点数 + 状態数）は学習時の設定に依存します。実機の推論コード側でも、入力次元を一致させる必要があります（例：108点LiDAR + 2点State = 110次元）。
-- **決定論的推論**: 実機デプロイ用のONNXモデルは、常に決定論的な行動（Deterministic Action）を出力するようにエクスポートされます。
-
----
-
-## 💡 これまでの重要知見 (Key Findings)
-
-実験を通じて蓄積された、学習を成功させるための「鉄則」です。
-
-1.  **物理制限の壁**: `MIN_SPEED=1.0` ではコーナーを曲がりきれない。物理的に不可能なタスクをAIに強いると「直進して衝突」などの局所解に陥るため、適切な `MIN_SPEED`（0.3〜0.5）の設定が必須。
-2.  **行動の発散**: `log_std_init` を適切に設定しないと、行動のばらつき（std）が20を超えて発散（パニック状態）し、完走率が0%になる。初期値は `-1.0` 以下を推奨。
-3.  **Resume（継続学習）の威力**: 完走100%を達成した EXP-25 などの成功モデルから、速度設定のみを上げて Resume することで、曲がる能力を維持したまま高速化が可能。
-4.  **観測次元の整合性**: `DOWNSAMPLE_FACTOR` と `FRAME_STACK` の積、および **LiDAR のスキャン角度範囲**が変更されると観測次元が変わり、モデルのロードができなくなる。270°化への移行時は Fresh学習を推奨。
+*   **報酬ハッキング**: 強すぎる「前進報酬」や不適切な「最大距離ボーナス」は、AIが広い場所でその場回転し続ける挙動を誘発します。これを防ぐために `rewards.py` に `spin_penalty` が導入されています。
+*   **物理エンジンの警告**: 学習初期に `RuntimeWarning: overflow encountered in multiply` が出ることがありますが、AIが極端な操作を試した際の物理エンジンの悲鳴です。`nan_to_num` ガードで処理されているため、学習自体は正常に継続します。
+*   **CUDAエラー**: コンテナ外で `nvidia-smi` が動作しているか、`docker-compose.yml` のリソース設定が正しいかを確認してください。
 
 ---
 
 ## 📝 バージョン情報
-- **最終更新**: 2026-04-23
-- **最新実験フェーズ**: フェーズ11（実機同期と観測の高解像度化）
-- **対応環境**: Ubuntu 20.04 / 22.04 + Docker + SB3 (PPO)
+*   **最終更新**: 2026-05-11
+*   **最新フェーズ**: フェーズ13（CNNの洗練・極狭路マップへの最適化）
+*   **ライセンス**: MIT

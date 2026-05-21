@@ -10,14 +10,18 @@ import time
 import csv
 import json
 import datetime
-from stable_baselines3 import PPO
+# SB3 classes are imported dynamically via load_algo_class
 from src import config
 from src.f1_env import F1TenthRL
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from src.cnn_policy import Conv1DLidarExtractor
+from scripts.utils.algo_utils import detect_algo, get_algo_class
+
 
 
 def main():
     parser = argparse.ArgumentParser(description='F1Tenth Model Benchmark Evaluator')
+    parser.add_argument('--algo', type=str, default=None, choices=['ppo', 'sac', 'td3'], help='アルゴリズム名 (未指定の場合は自動判別)')
     parser.add_argument('--episodes', type=int, default=10, help='評価するエピソード数')
     parser.add_argument('--max_steps', type=int, default=2000, help='1エピソードあたりの最大ステップ数')
     parser.add_argument('--model', type=str, default=None, help='モデルファイルのパス(拡張子なし)')
@@ -26,8 +30,8 @@ def main():
     # 環境の初期化
     env = F1TenthRL(config.MAP_PATH)
     env = DummyVecEnv([lambda: env])
-    # EXP_21: フレーム積層の適用
-    env = VecFrameStack(env, n_stack=config.FRAME_STACK)
+    # EXP-38: フレーム積層は環境内部（f1_env.py）で処理するためラッパーは使用しない
+    # env = VecFrameStack(env, n_stack=config.FRAME_STACK)
     print(f"現在の観測空間の形状: {env.observation_space.shape}")
 
     # モデルの読み込み
@@ -41,8 +45,23 @@ def main():
 
     if os.path.exists(target_model):
         try:
-            model = PPO.load(target_model, device=config.DEVICE)
-            print(f"モデルをロードしました: {target_model}")
+            # アルゴリズムの判定
+            algo_name = args.algo
+            if algo_name is None:
+                algo_name = detect_algo(target_model)
+                if algo_name:
+                    print(f"[ALGO] モデルからアルゴリズムを自動判別しました: {algo_name.upper()}")
+                else:
+                    algo_name = "ppo"
+                    print(f"[ALGO] アルゴリズムを判別できなかったため PPO を使用します")
+
+            AlgoClass = get_algo_class(algo_name)
+            if AlgoClass is None:
+                print(f"エラー: 未対応のアルゴリズムです: {algo_name}")
+                return
+
+            model = AlgoClass.load(target_model, device=config.DEVICE)
+            print(f"[{algo_name.upper()}] モデルをロードしました: {target_model}")
         except ValueError as e:
             print("--- 読み込みエラー ---")
             print(f"モデル '{target_model}' の読み込みに失敗しました。")
@@ -99,15 +118,20 @@ def main():
         results["rewards"].append(ep_reward)
         results["avg_speeds"].append(np.mean(speeds) if speeds else 0)
 
+        collision_flag = None
+        if isinstance(info, dict):
+            collision_flag = info.get('collision', None)
+
+        if collision_flag is None:
+            collision_flag = done
+
         # 成功/衝突の判定
-        # F1Tenth gym では done=True が衝突（壁接触によるエピソード終了）を意味する
-        # done=False のままループを抜けた場合は最大ステップ数到達（完走）
-        if done:
+        if collision_flag:
             results["collisions"] += 1
             status = "Collision"
         else:
             results["success"] += 1
-            status = "Success (Max Steps)"
+            status = "Success"
 
         statuses.append(status)
         print(f"Episode {ep+1:02d}: Steps={ep_steps:4d}, Reward={ep_reward:7.1f}, Speed={np.mean(speeds):.2f}m/s, {status}")

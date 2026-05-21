@@ -30,12 +30,13 @@ models/checkpoints/
 *.pkl
 
 # --- スクリプトが生成する出力画像・動画 ---
+# 生成される全画像・動画ファイル
+*.png
+*.gif
+*.mp4
+*.avi
 # gif/ 以下の全ファイル
 gif/
-# view_all_spawns.py が生成するスポーンマップ
-spawn_map.png
-# enjoy_wide.py などが生成する動画・GIF
-*.mp4
 
 # --- エディタ・OS関連 ---
 .vscode/
@@ -44,4 +45,3 @@ Thumbs.db
 
 # --- Docker関連 ---
 # .devcontainer/ は共有する場合は除外しない
-scripts/spawn_preview.png

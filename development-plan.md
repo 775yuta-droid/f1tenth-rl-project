@@ -4,9 +4,9 @@
 本プロジェクトは、LiDARセンサを用いたF1TENTH車両の自律走行を強化学習で実現する。
 
 ### 現在の構成
-- センサ：Hokuyo LiDAR
-- 入力：LiDAR（ダウンサンプリング）＋フレームスタック
-- モデル：MLP（全結合ニューラルネット）
+- センサ：Hokuyo LiDAR（270°）
+- 入力：LiDAR（ダウンサンプリング）＋フレームスタック＋車両状態＋追加特徴
+- モデル：**Conv1D + MLP（CNN特徴抽出器）**
 - アルゴリズム：PPO
 - 実行環境：Jetson Orin Nano
 
@@ -23,148 +23,124 @@ PPO（Proximal Policy Optimization）は強化学習アルゴリズムであり�
 
 ---
 
-## ■ 現在のボトルネック
-- 前処理の不安定性
-- 入力設計の不十分さ
-- LiDAR構造未活用（MLPの限界）
-
-※ アルゴリズム自体は問題ではない
-
----
-
-## ■ LiDAR前処理（最重要）
-
-### 問題点
-- inf / NaN 未処理
-- クリッピングなし
-- Z-score正規化（不安定）
+## ■ 現在のボトルネック（解決済み）
+- ~~前処理の不安定性~~ → **0-1反転正規化に修正 ✅**
+- ~~入力設計の不十分さ~~ → **front_dist / min_dist 特徴を追加 ✅**
+- ~~LiDAR構造未活用（MLPの限界）~~ → **Conv1D特徴抽出器を導入 ✅**
+- ~~時間情報の欠落~~ → **torch.flip および サブステップ観測更新を導入 ✅**
 
 ---
 
-### 推奨前処理
+## ■ LiDAR前処理（実装済み）
 
-    def preprocess_lidar(lidar, max_range=30.0):
-        import numpy as np
+### 実装済み前処理（development-plan.md準拠）
 
-        lidar = np.array(lidar)
+```python
+def preprocess_lidar(lidar, max_range=30.0):
+    import numpy as np
+    lidar = np.array(lidar)
+    lidar = np.nan_to_num(lidar, nan=max_range)
+    lidar[np.isinf(lidar)] = max_range
+    lidar = np.clip(lidar, 0.0, max_range)
+    lidar = lidar / max_range
+    lidar = 1.0 - lidar   # ← 近い壁=1.0, 遠い空間=0.0
+    return lidar
+```
 
-        lidar = np.nan_to_num(lidar, nan=max_range)
-        lidar[np.isinf(lidar)] = max_range
-        lidar = np.clip(lidar, 0.0, max_range)
-
-        lidar = lidar / max_range
-        lidar = 1.0 - lidar
-
-        return lidar
-
----
-
-### 数値条件
-- 範囲：0.0 ～ 1.0
-- NaN：なし
-- inf：なし
+実装場所: `src/f1_env.py` の `_get_obs()` 内
 
 ---
 
-## ■ 正規化 vs 正則化
+## ■ 入力設計（実装済み）
 
-| 用語 | 内容 |
-|------|------|
-| 正規化 | 入力スケール調整 |
-| 正則化 | 過学習防止 |
+### 改善案（実装済み）
+- 前方距離（`front_dist`）: `1.0 - clip(min(s[285:525])) / 30.0`
+- 最小距離（`min_dist`）: `1.0 - clip(min(s)) / 30.0`
 
-優先度：
-- 正規化：必須
-- 正則化：後回し
+`config.py`: `INCLUDE_EXTRA_FEATURES = True` で有効
 
 ---
 
-## ■ 入力設計
+## ■ モデル構造（最新：EXP-48構成）
 
-### 改善案
-- 前方距離（front）
-- 最小距離（min）
+LiDAR空間特徴を抽出する **Conv1D** と、車両状態を処理する **MLP** のハイブリッド構成。
 
----
+```mermaid
+graph TD
+    subgraph Input
+        L[LiDAR 216点 x 4F] -- torch.flip --> C1
+        S[車両状態 2点 x 4F] --> SFC
+    end
 
-### 構成
-LiDAR → 正規化 → フレームスタック → 特徴追加 → NN
+    subgraph ConvBlock["Conv1DLidarExtractor"]
+        C1[Conv1D k7/p3/s1] --> M1[MaxPool /2]
+        M1 --> C2[Conv1D k9/p4/s1] --> M2[MaxPool /2]
+        M2 --> C3[Conv1D k5/p2/s1] --> GAP[AdaptiveAvgPool1d 16]
+        GAP --> LFC[Linear 256]
+        SFC[Linear 32] --> CAT
+        LFC --> CAT[Concat]
+        CAT --> OFC[Linear 256]
+    end
 
----
+    subgraph PPOHead["net_arch=[128, 128]"]
+        OFC --> P[Actor Branch]
+        OFC --> V[Critic Branch]
+    end
+```
 
-## ■ モデル構造
-
-### 現状
-MLP（全結合）
-
-### 問題
-- 空間構造を無視
-
----
-
-## ■ 改善案：Conv1D
-
-### 構成
-LiDAR → Conv1D → Conv1D → MLP → 出力
-
-### 効果
-- 壁・コーナー検出
-- ノイズ耐性向上
-
----
-
-## ■ 報酬設計
-
-### 現状要素
-- 前方距離
-- 速度
-- 壁距離
-- 進行距離
+*   **実装場所**: `src/cnn_policy.py` (`Conv1DLidarExtractor`)
+*   **特徴**:
+    *   **AdaptiveAvgPool1d**: 入力解像度に依存しない堅牢な設計。
+    *   **時間順序の正常化**: `torch.flip` により物理的な因果関係を正しく学習。
 
 ---
 
-### 注意
-- 速度偏重 → 衝突
-- 安全偏重 → 遅い
+## ■ 報酬設計 (最新ロジック)
+
+### センターライン進捗報酬（最新：EXP-50構成）
+- **進捗（Progress）**: ウェイポイント・インデックスの差分を直接評価。逆走・停滞を物理的に排除。
+- **前進条件付き報酬**: 速度報酬とステアリング安定ボーナスを「前進中（delta > 0）」のみに制限。
+- **ペナルティ専用安全スコア**: 壁接近のみを減点。安全圏での加点を廃止し、停滞ハッキングを防止。
+- **高精度角速度ペナルティ**: 1ステップあたりの角度変化に基づくスピン防止。
+- **生存報酬ゼロ化**: 受動的な報酬を廃止し、能動的なコース進捗のみを評価。
 
 ---
 
-## ■ PPO以外
+## ■ 進捗状況まとめ
 
-### SAC
-- 高性能
-- 不安定
-
-### 結論
-現段階ではPPOが最適
-
----
-
-## ■ 優先順位
-
-1. 前処理修正
-2. 報酬調整
-3. 入力設計改善
-4. CNN導入
-5. PPO調整
-6. SAC検討
+| # | 項目 | 状態 |
+|---|------|------|
+| 1 | 前処理修正 | ✅ 完了 |
+| 2 | 入力設計改善 (front_dist/min_dist) | ✅ 完了 |
+| 3 | CNN導入 (Conv1D) | ✅ 完了 |
+| 4 | 報酬調整 (センターライン進捗/ハッキング根絶) | ✅ 完了 |
+| 5 | モデル軽量化・柔軟性向上 (GAP導入) | ✅ 完了 |
+| 6 | 時間軸反転バグの修正 | ✅ 完了 |
+| 7 | サブステップ観測更新の実装 | ✅ 完了 |
+| 8 | 報酬ロジックのユニットテスト整備 | ✅ 完了 |
+| 9 | 残差強化学習 (Residual RL) | ✅ 完了 |
 
 ---
 
-## ■ 結論
+## ■ 次のフェーズ：残差強化学習 (Residual RL)
 
-改善の本質は：
+学習速度と安定性を劇的に向上させるため、古典制御をベースとした「残差学習」へ移行する。
 
-「アルゴリズムではなく設計」
+### 1. コンセプト
+- **基本行動**: Pure Pursuit (純追従制御) がレーシングラインに基づき計算。
+- **RLの役割**: ベース行動に対する「補正値（Residual）」のみを学習。
+- **メリット**: ステップ 0 から完走可能。RLはラップタイム最適化に特化できる。
 
-特に重要：
-- 前処理
-- 入力設計
+### 2. 実装項目
+- [x] `src/controllers/pure_pursuit.py`: ベース制御器の実装
+- [x] `src/config.py`: `USE_RESIDUAL_RL` およびスケール設定の追加
+- [x] `src/f1_env.py`: `step()` 内で `final_action = base_action + residual` を計算
+- [x] `src/rewards.py`: ベースラインに対する向上を評価する報酬の調整
 
 ---
 
 ## ■ 次のアクション
 
-- 前処理修正（最優先）
-- CNN導入
-- 再学習・比較
+- [ ] **新規学習の開始** (`scripts/train.py`): ハッキング癖をリセットするためゼロから学習
+- [ ] TensorBoard で `reward/progress` と `reward/yaw_rate_penalty` を重点監視
+- [ ] 学習完了後のベンチマーク評価 (`scripts/evaluate.py`)

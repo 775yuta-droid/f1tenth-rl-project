@@ -7,13 +7,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO
+# SB3 classes are imported dynamically via load_algo_class
 from PIL import Image
 import imageio
 import argparse
 from src import config
 from src.f1_env import F1TenthRL
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from src.cnn_policy import Conv1DLidarExtractor
+from scripts.utils.algo_utils import detect_algo, get_algo_class
 
 class MapRenderer:
     def __init__(self, map_path, car_params={'length': 0.465, 'width': 0.19}, fig_size=8):
@@ -47,7 +49,6 @@ class MapRenderer:
         self.trail, = self.ax.plot([], [], color='#00aaff', alpha=0.5, linewidth=1, label='Trail')
         self.scans_scatter = self.ax.scatter([], [], s=1, c='#00ffff', alpha=0.3)
         self.car_dot, = self.ax.plot([], [], 'o', color='#ff0055', markersize=8, markeredgecolor='white', zorder=5)
-        self.corner_dots, = self.ax.plot([], [], 'o', color='white', markersize=3, zorder=7) # 物理的な角を表示
         self.car_arrow = None # 後で作成
         
         # 車両の外形（ポリゴン）
@@ -123,10 +124,6 @@ class MapRenderer:
             rotated_corners.append([center_px + rx, center_py - ry])
         
         self.car_polygon.set_xy(rotated_corners)
-        
-        # 物理的な角（白い点）の描画
-        corner_array = np.array(rotated_corners)
-        self.corner_dots.set_data(corner_array[:, 0], corner_array[:, 1])
 
         # 向きの矢印
         if self.car_arrow:
@@ -138,22 +135,15 @@ class MapRenderer:
         dy = -arrow_len * np.sin(car_theta) # 画像座標系(y軸反転)
         self.car_arrow = self.ax.arrow(px, py, dx, dy, head_width=4, head_length=5, fc='#ff0055', ec='white', zorder=6)
 
-        # LiDAR点群の描画
+        # LiDAR点群
         num_scans = scans.shape[0]
-        # シミュレータの視野角 (4.7 rad = 約270度) に合わせる
-        # ※ f1_env.py の 41行目付近の設定と一致させる必要があります
-        fov_rad = 4.7 
+        # FOV は実機仕様に合わせて 270度 (2.356 rad * 2) と想定
+        fov_rad = 4.7 # もしくは実機の 4.712 (3/2 * pi)
         angles = np.linspace(-fov_rad/2, fov_rad/2, num_scans) + car_theta
-        
         scan_x_world = car_x + scans * np.cos(angles)
         scan_y_world = car_y + scans * np.sin(angles)
         scan_px, scan_py = self.world_to_pixel(scan_x_world, scan_y_world)
-        
-        # 点のサイズ(s)を大きくし、alphaを上げて見やすくする
         self.scans_scatter.set_offsets(np.c_[scan_px, scan_py])
-        self.scans_scatter.set_sizes([4] * num_scans)
-        self.scans_scatter.set_alpha(0.8)
-        self.scans_scatter.set_color('#00ffff')
 
         # HUD
         info_str = (
@@ -169,10 +159,25 @@ class MapRenderer:
         # 画面キャプチャ
         self.fig.canvas.draw()
         frame = np.array(self.fig.canvas.buffer_rgba())[:, :, :3]
+
+        # 16の倍数にパディング (ffmpegの macro_block_size 警告対策)
+        h, w, _ = frame.shape
+        if h % 16 != 0 or w % 16 != 0:
+            new_h = ((h + 15) // 16) * 16
+            new_w = ((w + 15) // 16) * 16
+            # 背景色 (#121212) でパディング
+            bg_color = np.array([18, 18, 18], dtype=np.uint8)
+            padded_frame = np.full((new_h, new_w, 3), bg_color, dtype=np.uint8)
+            # 中央に配置、もしくは左上に配置
+            padded_frame[:h, :w, :] = frame
+            frame = padded_frame
+
         return frame
 
+
 def main():
-    parser = argparse.ArgumentParser(description='F1Tenth PPO Model Viewer')
+    parser = argparse.ArgumentParser(description='F1Tenth Model Viewer')
+    parser.add_argument('--algo', type=str, default=None, choices=['ppo', 'sac', 'td3'], help='アルゴリズム名 (未指定の場合は自動判別)')
     parser.add_argument('--steps', type=int, default=1500, help='最大シミュレーションステップ数')
     parser.add_argument('--model', type=str, default=None, help='モデルファイルのパス(拡張子なし)')
     parser.add_argument('--save', type=str, default=config.GIF_PATH, help='保存先のパス')
@@ -206,14 +211,29 @@ def main():
         target_model += ".zip"
     
     if os.path.exists(target_model):
-        model = PPO.load(target_model, device=config.DEVICE)
-        print(f"モデルをロードしました: {target_model}")
+        # アルゴリズムの判定
+        algo_name = args.algo
+        if algo_name is None:
+            algo_name = detect_algo(target_model)
+            if algo_name:
+                print(f"[ALGO] モデルからアルゴリズムを自動判別しました: {algo_name.upper()}")
+            else:
+                algo_name = "ppo"
+                print(f"[ALGO] アルゴリズムを判別できなかったため PPO を使用します")
+        
+        AlgoClass = get_algo_class(algo_name)
+        if AlgoClass is None:
+            print(f"エラー: 未対応のアルゴリズムです: {algo_name}")
+            return
+            
+        model = AlgoClass.load(target_model, device=config.DEVICE)
+        print(f"[{algo_name.upper()}] モデルをロードしました: {target_model}")
     else:
         print(f"エラー: モデルファイルが見つかりません: {target_model}")
         return
 
     # 描画クラスの初期化 (ユーザー希望の 0.465 x 0.19 を強制)
-    car_params = {'length': 0.58, 'width': 0.31}
+    car_params = {'length': 0.465, 'width': 0.19}
     renderer = MapRenderer(config.MAP_PATH, car_params=car_params)
 
     obs = env.reset()
@@ -226,7 +246,6 @@ def main():
     
     try:
         for i in range(args.steps):
-            # AIの予測を使用（VecEnv用なので [action] とリスト化して渡す）
             action, _ = model.predict(obs, deterministic=True)
             obs, rewards, dones, infos = env.step(action)
             
@@ -236,6 +255,9 @@ def main():
             info   = infos[0]
             
             raw_scan = info.get('raw_scan', np.zeros(1080))
+            collision_flag = info.get('collision', None)
+            if collision_flag is None:
+                collision_flag = done
             total_reward += reward
 
             # 車両状態の取得
@@ -248,24 +270,29 @@ def main():
             except Exception as e:
                 car_state = (0, 0, 0, 0)
 
-            # 描画更新 (全ステップ描画して、衝突の瞬間を逃さないようにする)
-            if not args.no_render:
+            # 描画更新 (2ステップに1回)
+            if i % 2 == 0 and not args.no_render:
+                # action[0] (現在のエージェントの操作) を渡す
                 frame = renderer.update(car_state, raw_scan, action[0], reward, i, collisions, reset_trail=reset_flag)
                 frames.append(frame)
                 reset_flag = False
+                
+                if (i // 2) % 50 == 0:
+                    print(f"レンダリング中... Step: {i}")
 
             if done:
-                collisions += 1
-                print(f"衝突判定！ Step: {i}")
-                
-                # 衝突の瞬間を目視できるように、同じフレームを15回（約0.5秒分）繰り返して保存
-                if not args.no_render:
-                    for _ in range(15):
-                        frames.append(frame)
-                
+                if collision_flag:
+                    collisions += 1
+                    print(f"衝突！ Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f})")
+                else:
+                    print(f"終了(衝突なし) Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f}, info={info})")
+
+                # 終了時の最後のフレームをレンダリングに反映させるため、ここで一旦分断
                 renderer.break_trail()
+                
                 obs = env.reset()
                 total_reward = 0
+                # 次のレンダリング時に確実にクリア
                 reset_flag = True
 
     except KeyboardInterrupt:
