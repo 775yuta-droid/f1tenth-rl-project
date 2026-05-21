@@ -255,6 +255,9 @@ def main():
             info   = infos[0]
             
             raw_scan = info.get('raw_scan', np.zeros(1080))
+            collision_flag = info.get('collision', None)
+            if collision_flag is None:
+                collision_flag = done
             total_reward += reward
 
             # 車両状態の取得
@@ -278,10 +281,13 @@ def main():
                     print(f"レンダリング中... Step: {i}")
 
             if done:
-                collisions += 1
-                print(f"衝突！ Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f})")
-                
-                # 衝突時の最後のフレームをレンダリングに反映させるため、ここで一旦分断
+                if collision_flag:
+                    collisions += 1
+                    print(f"衝突！ Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f})")
+                else:
+                    print(f"終了(衝突なし) Step: {i} (累積: {collisions}, 報酬累計: {total_reward:.1f}, info={info})")
+
+                # 終了時の最後のフレームをレンダリングに反映させるため、ここで一旦分断
                 renderer.break_trail()
                 
                 obs = env.reset()

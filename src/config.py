@@ -92,7 +92,7 @@ CAR_LENGTH = 0.465
 CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻し、物理的に狭いコースを曲がれるようにする)
 
 # --- 残差強化学習 (Residual RL) 設定 ---
-USE_RESIDUAL_RL = False    # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
+USE_RESIDUAL_RL = True    # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
                             # [Fix-V4] スピン原因の切り分けのため一時無効化
 RESIDUAL_STEER_SCALE = 0.2 # ステアリング補正幅 (rad) - 最大ステアの約半分
 RESIDUAL_SPEED_SCALE = 1.0 # 速度補正幅 (m/s)

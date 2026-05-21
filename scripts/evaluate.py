@@ -118,15 +118,20 @@ def main():
         results["rewards"].append(ep_reward)
         results["avg_speeds"].append(np.mean(speeds) if speeds else 0)
 
+        collision_flag = None
+        if isinstance(info, dict):
+            collision_flag = info.get('collision', None)
+
+        if collision_flag is None:
+            collision_flag = done
+
         # 成功/衝突の判定
-        # F1Tenth gym では done=True が衝突（壁接触によるエピソード終了）を意味する
-        # done=False のままループを抜けた場合は最大ステップ数到達（完走）
-        if done:
+        if collision_flag:
             results["collisions"] += 1
             status = "Collision"
         else:
             results["success"] += 1
-            status = "Success (Max Steps)"
+            status = "Success"
 
         statuses.append(status)
         print(f"Episode {ep+1:02d}: Steps={ep_steps:4d}, Reward={ep_reward:7.1f}, Speed={np.mean(speeds):.2f}m/s, {status}")
