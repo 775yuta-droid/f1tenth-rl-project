@@ -411,20 +411,6 @@ class F1TenthRL(gym.Env):
 
             if info is None:
                 info = {}
-
-            # `f110_gym` の観測に collision フラグが含まれている場合、明示的に渡す
-            collision_flag = False
-            if isinstance(obs, dict):
-                coll = obs.get('collisions')
-                if coll is not None:
-                    if isinstance(coll, np.ndarray):
-                        collision_flag = bool(coll[0])
-                    elif isinstance(coll, (list, tuple)):
-                        collision_flag = bool(coll[0]) if len(coll) > 0 else False
-                    else:
-                        collision_flag = bool(coll)
-
-            info['collision'] = collision_flag
             info['raw_scan'] = clean_scans
             # インデックスベースの進捗報酬計算
             cur_idx = self.prev_idx
