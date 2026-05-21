@@ -126,7 +126,7 @@ YAW_RATE_PENALTY_WEIGHT = 1.5  # 新規: 回転ハッキング防止用の角速
 #   my_map        -- 独自の倉庫マップ（デフォルト）
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/honbann-cose/map_1_0509_145516")
+MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/tyoikuzen-test/map_1_0521_174040")
 MODEL_DIR = os.environ.get("MODEL_DIR", "/workspace/models")
 LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
@@ -141,16 +141,14 @@ START_POSE = [-1.82, 0.45, 0.00]
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [-2.07, 0.82, -0.64],  # Pose 0
-    [1.96, 0.46, 1.01],  # Pose 1
-    [1.16, 3.23, -2.58],  # Pose 2
-    [-0.98, 3.48, 2.39],  # Pose 3
-    [-0.35, 2.63, 2.72],  # Pose 4
-    [-1.79, 3.56, -1.97],  # Pose 5
-    [-0.36, 0.34, -0.02],  # Pose 6
-    [2.26, 2.79, 2.53],  # Pose 7
-    [-0.16, 2.76, 2.69],  # Pose 8
-    [1.70, 3.04, 2.99],  # Pose 9
+    [-0.86, -1.08, -1.89],  # Pose 0
+    [1.70, -0.27, 2.53],  # Pose 1
+    [1.08, -1.18, 0.98],  # Pose 2
+    [-0.05, -1.82, 0.11],  # Pose 3
+    [0.22, -0.14, -2.51],  # Pose 4
+
+
+
 
 
 
