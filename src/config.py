@@ -84,8 +84,8 @@ CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
 ACTION_REPEAT = 4          # EXP-44: 1 -> 4 (10Hz制御に落とし、低速時の挙動を安定化)
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
-MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.3"))   # EXP-25知見: 0.3m/sでコーナーブレーキ許可
-MAX_SPEED = float(os.environ.get("MAX_SPEED", "2.5"))   # EXP-25知見: 2.5m/sから段階的引き上げ。EXP-26〜29で高速 Fresh学習は全滅
+MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.4"))   # 低速停止旋回を抑制しつつ、短時間での前進学習を促す
+MAX_SPEED = float(os.environ.get("MAX_SPEED", "2.0"))   # 安定化しながら短学習時間でも速さが伸びる範囲に調整
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -94,9 +94,9 @@ CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻�
 # --- 残差強化学習 (Residual RL) 設定 ---
 USE_RESIDUAL_RL = True    # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
                             # [Fix-V4] スピン原因の切り分けのため一時無効化
-RESIDUAL_STEER_SCALE = 0.2 # ステアリング補正幅 (rad) - 最大ステアの約半分
-RESIDUAL_SPEED_SCALE = 1.0 # 速度補正幅 (m/s)
-PURE_PURSUIT_LOOKAHEAD = 0.8 # Pure Pursuit の先読み距離 (m)
+RESIDUAL_STEER_SCALE = 0.1 # ステアリング補正幅を縮小し、極端な舵角を抑制
+RESIDUAL_SPEED_SCALE = 0.5 # 速度補正幅を半分に減らし、速度変動を穏やかに
+PURE_PURSUIT_LOOKAHEAD = 0.6 # Pure Pursuit の先読み距離を少し伸ばし、安定感を高める
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0
@@ -106,10 +106,10 @@ REWARD_SPEED_WEIGHT = 2.0   # 増量: 実速度へのインセンティブ強化
 REWARD_SAFETY_WEIGHT = 0.8
 REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
 REWARD_PROGRESS_WEIGHT = 10.0  # 前進の価値を大幅に強化 (インデックスベース)
-REWARD_CURVE_WEIGHT    = 1.2   # EXP-49: カーブステアリング報酬の重み（新規）
+REWARD_CURVE_WEIGHT    = 1.0   # カーブ報酬をやや抑えて、曲がることと前進のバランスを改善
 REWARD_LINE_WEIGHT     = 0.5   # 先生提案: レーシングライン誤差ペナルティ（r_line）の重み
-REWARD_SMOOTH_WEIGHT   = 0.1   # 先生提案: 操作量の急変ペナルティ（r_smooth）の重み
-YAW_RATE_PENALTY_WEIGHT = 1.5  # 新規: 回転ハッキング防止用の角速度ペナルティ
+REWARD_SMOOTH_WEIGHT   = 0.5   # 操作の急変ペナルティを強化し、くるくる回る挙動を抑制
+YAW_RATE_PENALTY_WEIGHT = 3.0  # 回転ハッキング防止を強化
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。
