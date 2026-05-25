@@ -160,7 +160,7 @@ def main():
     # --- 環境初期化 ---
     if algo == "ppo":
         # PPOの場合は並列数を自動で引き上げる (config.N_ENVS が 1 の場合のみ 8 に上書き)
-        n_envs = 8 if config.N_ENVS == 1 else config.N_ENVS
+        n_envs = 1 if config.N_ENVS == 1 else config.N_ENVS
         env = SubprocVecEnv([make_env(i) for i in range(n_envs)])
         print(f"[ENV]    SubprocVecEnv × {n_envs} (PPO用並列環境を自動構成)")
     else:

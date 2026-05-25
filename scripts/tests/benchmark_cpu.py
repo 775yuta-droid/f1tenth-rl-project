@@ -34,7 +34,7 @@ def run_benchmark(num_threads, n_envs=1, total_timesteps=2000):
         "MlpPolicy",
         env,
         verbose=0,
-        device="cpu"
+        device="cuda" if torch.cuda.is_available() else "cpu",
     )
     
     print(f"計測中: Threads={num_threads}, Envs={n_envs} ...", end="", flush=True)
@@ -59,7 +59,7 @@ def main():
     results = []
     
     # スレッド数の候補 (1, 2, 4, 8, 16 など、コア数に応じて)
-    thread_counts = [1, 2, 4, 8]
+    thread_counts = [1, 2, 4, 8, 16, 32, 64,128]
     thread_counts = [t for t in thread_counts if t <= cpu_count]
     
     # Envs の候補 (現在は config.N_ENVS を使用、または 1, 4 など)
