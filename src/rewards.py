@@ -43,8 +43,8 @@ MAP_WALL_DIST_DANGER = 0.15        # 変更なし（物理的危険境界）
 MAP_WALL_DIST_ZERO   = 0.762       # p25: このラインでsafety_score=0（ゼロ点）
 MAP_WALL_DIST_WARN   = 0.40        # 強ペナルティ境界
 
-BRAKE_TIME_COEFF = 0.8   # 反応時間係数 [s]
-BRAKE_MARGIN     = 0.5   # 余裕距離 [m]
+BRAKE_TIME_COEFF = 0.9   # 反応時間係数 [s]
+BRAKE_MARGIN     = 0.6   # 余裕距離 [m]
 
 # カーブ検出閾値
 # asymmetry = |diag_left - diag_right| / (diag_left + diag_right)

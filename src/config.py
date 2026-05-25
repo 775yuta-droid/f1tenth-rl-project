@@ -84,8 +84,8 @@ CONTROL_HZ = 40            # 実機LiDARに合わせた制御周波数 (40Hz)
 ACTION_REPEAT = 4          # EXP-44: 1 -> 4 (10Hz制御に落とし、低速時の挙動を安定化)
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
-MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.4"))   # 低速停止旋回を抑制しつつ、短時間での前進学習を促す
-MAX_SPEED = float(os.environ.get("MAX_SPEED", "4.0"))   # [Map-3] 旧2.5 → 4.0
+MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.5"))   # 低速停止旋回を抑制しつつ、短時間での前進学習を促す
+MAX_SPEED = float(os.environ.get("MAX_SPEED", "1.0"))   # [Map-3] 旧2.5 → 4.0
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -95,7 +95,7 @@ CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻�
 USE_RESIDUAL_RL = True    # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
                             # [Fix-V4] スピン原因の切り分けのため一時無効化
 RESIDUAL_STEER_SCALE = 0.1 # ステアリング補正幅を縮小し、極端な舵角を抑制
-RESIDUAL_SPEED_SCALE = 0.5 # 速度補正幅を半分に減らし、速度変動を穏やかに
+RESIDUAL_SPEED_SCALE = 1.0 # 速度補正幅を半分に減らし、速度変動を穏やかに
 PURE_PURSUIT_LOOKAHEAD = 2.5 # [Map-5] 旧1.5 → 2.5（広いコースでの安定性向上）
 
 # --- 報酬設計の設定 ---

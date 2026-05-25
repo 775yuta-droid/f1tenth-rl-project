@@ -72,7 +72,7 @@ class PurePursuitController:
         
         # シンプルな速度プロファイル: v = v_max * exp(-k * curvature)
         # 曲率が高いほど減速する
-        speed = max_speed * np.exp(-1.5 * target_curvature)
+        speed = max_speed * np.exp(-1.8 * target_curvature)
         speed = np.clip(speed, min_speed, max_speed)
         
         return steer_rad, speed
