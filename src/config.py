@@ -85,7 +85,7 @@ ACTION_REPEAT = 4          # EXP-44: 1 -> 4 (10Hz制御に落とし、低速時�
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
 MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.5"))   # 低速停止旋回を抑制しつつ、短時間での前進学習を促す
-MAX_SPEED = float(os.environ.get("MAX_SPEED", "1.0"))   # [Map-3] 旧2.5 → 4.0
+MAX_SPEED = float(os.environ.get("MAX_SPEED", "1.2"))   # [Fix-A2] 1.0 → 2.0: 報酬関数の max_speed と整合し、カーブ報酬を正常化
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -94,9 +94,9 @@ CAR_WIDTH = 0.19           # EXP-35: 0.23 -> 0.19 に復帰 (太さを元に戻�
 # --- 残差強化学習 (Residual RL) 設定 ---
 USE_RESIDUAL_RL = True    # True: 古典制御(Pure Pursuit) + RL補正, False: 通常のRL
                             # [Fix-V4] スピン原因の切り分けのため一時無効化
-RESIDUAL_STEER_SCALE = 0.1 # ステアリング補正幅を縮小し、極端な舵角を抑制
+RESIDUAL_STEER_SCALE = 0.2 # [Fix-B] 0.1→0.2: ステア補正幅を拡大（最大ステア21%→ターン補正可)
 RESIDUAL_SPEED_SCALE = 1.0 # 速度補正幅を半分に減らし、速度変動を穏やかに
-PURE_PURSUIT_LOOKAHEAD = 2.5 # [Map-5] 旧1.5 → 2.5（広いコースでの安定性向上）
+PURE_PURSUIT_LOOKAHEAD = 1.5 # [Fix-C] 2.5→1.5: 犭いマップの急カーブで目標点精度を改善
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0

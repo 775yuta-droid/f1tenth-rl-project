@@ -43,8 +43,10 @@ MAP_WALL_DIST_DANGER = 0.15        # 変更なし（物理的危険境界）
 MAP_WALL_DIST_ZERO   = 0.762       # p25: このラインでsafety_score=0（ゼロ点）
 MAP_WALL_DIST_WARN   = 0.40        # 強ペナルティ境界
 
-BRAKE_TIME_COEFF = 0.9   # 反応時間係数 [s]
-BRAKE_MARGIN     = 0.6   # 余裕距離 [m]
+# [Fix-D] 低速環境(MAX_SPEED=2.0m/s)向けにスケールダウン
+# 旧: 0.9/0.6 → 高速走行前提の値で常時ブレーキペナルティゾーンが広すぎた
+BRAKE_TIME_COEFF = 0.5   # 反応時間係数 [s] (0.9→0.5)
+BRAKE_MARGIN     = 0.3   # 余裕距離 [m]  (0.6→0.3)
 
 # カーブ検出閾値
 # asymmetry = |diag_left - diag_right| / (diag_left + diag_right)
@@ -76,6 +78,9 @@ _DEFAULT_REWARD_CFG = None
 def _get_cached_config():
     global _DEFAULT_REWARD_CFG
     if _DEFAULT_REWARD_CFG is None:
+        # [Fix-A] max_speed を config.MAX_SPEED から明示的に取得
+        # 旧: RewardConfig のデフォルト値 4.0 が使われ続け、
+        #     speed_factor = 実速度(max=1.0) / 4.0 = 常時0.25以下になっていた
         _DEFAULT_REWARD_CFG = RewardConfig(
             reward_collision=config.REWARD_COLLISION,
             reward_survival=config.REWARD_SURVIVAL,
@@ -88,7 +93,7 @@ def _get_cached_config():
             reward_line_weight=config.REWARD_LINE_WEIGHT,
             reward_smooth_weight=config.REWARD_SMOOTH_WEIGHT,
             yaw_rate_penalty_weight=config.YAW_RATE_PENALTY_WEIGHT,
-            max_speed=config.MAX_SPEED,
+            max_speed=config.MAX_SPEED,  # [Fix-A] config と報酬スケールを統一
         )
     return _DEFAULT_REWARD_CFG
 
@@ -251,30 +256,15 @@ def calculate_reward(
         reward -= 0.5 * abs(heading_err_norm)
 
     # ----------------------------------------------------------
-    # 7. 角速度ペナルティ (スピン防止) [Fix-R4]
+    # 7. 物理的なステアリング限界に基づくヨーレート制限（スピンペナルティ）
     # ----------------------------------------------------------
-    # 1ステップで 180度(pi rad) 以上回転している場合は異常とみなす
-    # yaw_rate [rad/s] を基準にペナルティ計算。最大約3.5 rad/s。
-    #
-    # [Fix-Curve3] S字カーブの「切り返し」はyaw_rateを一時的に高くする正当な動作。
-    # カーブ時（asymmetry 大）はペナルティ係数を緩和し、正しい切り返しを阻害しない。
-    #   直線 (asymmetry≈0.0): curve_yaw_relief = 1.0 （全ペナルティ）
-    #   急カーブ (asymmetry≈0.33): curve_yaw_relief = 0.30 （70%緩和）
-    curve_yaw_relief = max(0.3, 1.0 - asymmetry * 2.1)
-    yaw_rate_norm = np.clip(abs(yaw_rate) / 3.5, 0.0, 1.0)
-    reward -= yaw_rate_norm * cfg.yaw_rate_penalty_weight * curve_yaw_relief
-
-    # [Fix-V4] 極端な角速度(rad/s)への追加ペナルティ (例: 2.0 rad/s 以上)
-    # [Fix-Curve3] カーブ時（asymmetry > 0.25）は免除 → S字切り返しに必要な角速度
-    if abs(yaw_rate) > 2.0 and asymmetry < 0.25:
-        reward -= 2.0
-
-    # ----------------------------------------------------------
-    # 7.5 低速旋回抑制ペナルティ
-    # 低速かつ大きな yaw_rate ではその場旋回になりやすいため、
-    # 前進していないときに追加でペナルティを与える。
-    if current_speed < cfg.max_speed * 0.25 and abs(yaw_rate) > 1.0:
-        reward -= (abs(yaw_rate) - 1.0) * 2.0
+    # 車両がスリップなしで出せる理論上の最大ヨーレート: yaw_rate = speed * tan(max_steer) / wheelbase
+    # ホイールベース L = 0.33m, 最大舵角 = 0.4189 rad (tan(0.4189) ≈ 0.445)
+    # よって、最大ヨーレート ≈ 1.35 * speed。これにスライド許容マージン (1.0 rad/s) を加える。
+    kinematic_yaw_limit = (current_speed * 1.35) + 1.0
+    if abs(yaw_rate) > kinematic_yaw_limit:
+        spin_excess = abs(yaw_rate) - kinematic_yaw_limit
+        reward -= spin_excess * 5.0  # 強いペナルティでスピン・その場高速旋回を完全に排除
 
     # ----------------------------------------------------------
     # 8. カーブステアリング報酬 [Fix-R2: 新規追加]
@@ -290,12 +280,16 @@ def calculate_reward(
     #   正 = 正しい方向へ切っている
     #   負 = 間違った方向へ切っている
     # ----------------------------------------------------------
-    # [Fix-R4] 前進が極端に少ない場合はカーブ報酬を与えない（その場旋回対策）
-    if asymmetry > CURVE_ASYMMETRY_THRESHOLD and delta > 0:
-        open_dir        = 1.0 if diag_left > diag_right else -1.0
-        steer_alignment = applied_steer * open_dir   # [-1, 1]
-        curve_reward    = steer_alignment * asymmetry * cfg.reward_curve_weight
-        reward         += curve_reward
+    # [Fix-E] delta >= 0 に緩和: カーブ入口で速度が伸びず delta=0 になる場面でも
+    # 正しい方向へのステアリングを報酬化し、旋回動機を維持する
+    # （その場回転対策は yaw_rate ペナルティと低速旋回抑制で別途対処済み）
+    if asymmetry > CURVE_ASYMMETRY_THRESHOLD and delta >= 0:
+        # スピンや逆走・その場回転による報酬ハッキングを防ぐため、一定の前進速度と進行方向のアライメントを要求
+        if current_speed > 0.3 and abs(heading_err_norm) < 0.4:
+            open_dir        = 1.0 if diag_left > diag_right else -1.0
+            steer_alignment = applied_steer * open_dir   # [-1, 1]
+            curve_reward    = steer_alignment * asymmetry * cfg.reward_curve_weight
+            reward         += curve_reward
 
     # ----------------------------------------------------------
     # 9. ステアリング安定性 [Fix-R3: 直線判定条件を追加]
