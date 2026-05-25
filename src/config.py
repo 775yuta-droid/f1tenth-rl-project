@@ -126,7 +126,7 @@ YAW_RATE_PENALTY_WEIGHT = 3.0  # 回転ハッキング防止を強化
 #   my_map        -- 独自の倉庫マップ（デフォルト）
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/tyoikuzen-test/map_1_0521_174040")
+MAP_PATH  = os.environ.get("MAP_PATH",  "/workspace/my_maps/magp-map/map_3_0525_103844")
 MODEL_DIR = os.environ.get("MODEL_DIR", "/workspace/models")
 LOG_DIR   = os.environ.get("LOG_DIR",   "/workspace/logs")
 
@@ -141,11 +141,19 @@ START_POSE = [-1.82, 0.45, 0.00]
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [-0.86, -1.08, -1.89],  # Pose 0
-    [1.70, -0.27, 2.53],  # Pose 1
-    [1.08, -1.18, 0.98],  # Pose 2
-    [-0.05, -1.82, 0.11],  # Pose 3
-    [0.22, -0.14, -2.51],  # Pose 4
+    [3.40, -2.53, -1.89],  # Pose 0
+    [1.06, -0.66, -0.32],  # Pose 1
+    [0.07, -4.57, -2.67],  # Pose 2
+    [0.33, -9.31, -2.07],  # Pose 3
+    [-1.03, -1.76, 0.98],  # Pose 4
+    [-1.89, -8.04, 1.69],  # Pose 5
+    [-1.25, -11.21, 3.08],  # Pose 6
+    [0.05, -7.36, -1.33],  # Pose 7
+    [-1.93, -4.62, 1.38],  # Pose 8
+    [2.18, -1.12, -0.50],  # Pose 9
+    [2.40, -4.99, -2.98],  # Pose 10
+    [1.30, -4.95, 3.10],  # Pose 11
+
 
 
 
@@ -163,3 +171,12 @@ GIF_PATH   = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMES
 
 # 報酬計算ロジックは src/rewards.py に移動しました。
 # from .rewards import calculate_reward
+
+# --- Human Demo / Behavioral Cloning ---
+# 実機デモ録画 → convert_demo.py → pretrain_bc.py → train.py --resume のパイプライン
+DEMO_DIR       = os.path.join(PROJECT_ROOT, "demos")
+BC_MODEL_PATH  = os.path.join(MODEL_DIR, "bc_pretrained")
+BC_EPOCHS      = 500          # BC 学習エポック数
+BC_BATCH_SIZE  = 256          # BC バッチサイズ
+BC_LR          = 3e-4         # BC 学習率
+REAL_STEER_MAX = 0.4189       # 実機最大ステア角 [rad] (Futaba T4PM / Hokuyo)
