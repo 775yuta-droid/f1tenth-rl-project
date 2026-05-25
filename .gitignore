@@ -45,3 +45,8 @@ Thumbs.db
 
 # --- Docker関連 ---
 # .devcontainer/ は共有する場合は除外しない
+
+# --- Human Demo Data ---
+# 実機デモ録画ファイルは容量が大きいため Git 管理外
+# scp で手動転送してください
+demos/*.npz

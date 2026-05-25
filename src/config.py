@@ -163,3 +163,12 @@ GIF_PATH   = os.path.join(GIF_DIR, f"run_simulation_{MAP_NAME}_steps{TOTAL_TIMES
 
 # 報酬計算ロジックは src/rewards.py に移動しました。
 # from .rewards import calculate_reward
+
+# --- Human Demo / Behavioral Cloning ---
+# 実機デモ録画 → convert_demo.py → pretrain_bc.py → train.py --resume のパイプライン
+DEMO_DIR       = os.path.join(PROJECT_ROOT, "demos")
+BC_MODEL_PATH  = os.path.join(MODEL_DIR, "bc_pretrained")
+BC_EPOCHS      = 500          # BC 学習エポック数
+BC_BATCH_SIZE  = 256          # BC バッチサイズ
+BC_LR          = 3e-4         # BC 学習率
+REAL_STEER_MAX = 0.4189       # 実機最大ステア角 [rad] (Futaba T4PM / Hokuyo)
