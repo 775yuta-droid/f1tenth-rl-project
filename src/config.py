@@ -85,7 +85,7 @@ ACTION_REPEAT = 4          # EXP-44: 1 -> 4 (10Hz制御に落とし、低速時�
 SIM_TIMESTEP = 1.0 / CONTROL_HZ
 STEER_SENSITIVITY = 1.0    # EXP-35: 1.3 -> 1.0 に復帰 (元の感度に戻し、AIの運転感覚の狂いを解消)
 MIN_SPEED = float(os.environ.get("MIN_SPEED", "0.4"))   # 低速停止旋回を抑制しつつ、短時間での前進学習を促す
-MAX_SPEED = float(os.environ.get("MAX_SPEED", "2.0"))   # 安定化しながら短学習時間でも速さが伸びる範囲に調整
+MAX_SPEED = float(os.environ.get("MAX_SPEED", "4.0"))   # [Map-3] 旧2.5 → 4.0
 
 # --- マシン寸法 ---
 CAR_LENGTH = 0.465
@@ -96,20 +96,20 @@ USE_RESIDUAL_RL = True    # True: 古典制御(Pure Pursuit) + RL補正, False: 
                             # [Fix-V4] スピン原因の切り分けのため一時無効化
 RESIDUAL_STEER_SCALE = 0.1 # ステアリング補正幅を縮小し、極端な舵角を抑制
 RESIDUAL_SPEED_SCALE = 0.5 # 速度補正幅を半分に減らし、速度変動を穏やかに
-PURE_PURSUIT_LOOKAHEAD = 0.6 # Pure Pursuit の先読み距離を少し伸ばし、安定感を高める
+PURE_PURSUIT_LOOKAHEAD = 2.5 # [Map-5] 旧1.5 → 2.5（広いコースでの安定性向上）
 
 # --- 報酬設計の設定 ---
 REWARD_COLLISION = -200.0
-REWARD_SURVIVAL  = 0.1      # [Fix-V4] 微小生存報酬を復活: PPO勾配を安定させるための最小限の正報酬
-REWARD_FRONT_WEIGHT = 0.0   # 完全廃止: その場回転ハッキング防止
-REWARD_SPEED_WEIGHT = 2.0   # 増量: 実速度へのインセンティブ強化
+REWARD_SURVIVAL  = 0.1
+REWARD_FRONT_WEIGHT = 0.0
+REWARD_SPEED_WEIGHT = 2.0
 REWARD_SAFETY_WEIGHT = 0.8
-REWARD_DISTANCE_WEIGHT = 1.0   # 壁接近ペナルティ
-REWARD_PROGRESS_WEIGHT = 10.0  # 前進の価値を大幅に強化 (インデックスベース)
-REWARD_CURVE_WEIGHT    = 1.0   # カーブ報酬をやや抑えて、曲がることと前進のバランスを改善
-REWARD_LINE_WEIGHT     = 0.5   # 先生提案: レーシングライン誤差ペナルティ（r_line）の重み
-REWARD_SMOOTH_WEIGHT   = 0.5   # 操作の急変ペナルティを強化し、くるくる回る挙動を抑制
-YAW_RATE_PENALTY_WEIGHT = 3.0  # 回転ハッキング防止を強化
+REWARD_DISTANCE_WEIGHT = 1.0
+REWARD_PROGRESS_WEIGHT = 10.0
+REWARD_CURVE_WEIGHT    = 1.2
+REWARD_LINE_WEIGHT     = 0.5
+REWARD_SMOOTH_WEIGHT   = 0.1
+YAW_RATE_PENALTY_WEIGHT = 1.5
 
 # --- パス設定 ---
 # 環境変数で上書き可能。未設定の場合は Docker 内デフォルト値を使用。
@@ -136,30 +136,20 @@ RACING_LINE_PATH = os.environ.get("RACING_LINE_PATH", MAP_PATH + "_centerline.cs
 
 # --- 初期位置設定 [x, y, yaw] ---
 # view_spawn.py で確認しながら調整してください
-START_POSE = [-1.82, 0.45, 0.00]
+START_POSE = [0.39, -0.61, 0.15]
 
 # スタート位置のランダム化（Trueの場合、下記リストからランダムに選択）
 START_POSE_RANDOMIZE = True
 START_POSES = [
-    [3.40, -2.53, -1.89],  # Pose 0
-    [1.06, -0.66, -0.32],  # Pose 1
-    [0.07, -4.57, -2.67],  # Pose 2
-    [0.33, -9.31, -2.07],  # Pose 3
-    [-1.03, -1.76, 0.98],  # Pose 4
-    [-1.89, -8.04, 1.69],  # Pose 5
-    [-1.25, -11.21, 3.08],  # Pose 6
-    [0.05, -7.36, -1.33],  # Pose 7
-    [-1.93, -4.62, 1.38],  # Pose 8
-    [2.18, -1.12, -0.50],  # Pose 9
-    [2.40, -4.99, -2.98],  # Pose 10
-    [1.30, -4.95, 3.10],  # Pose 11
-
-
-
-
-
-
-
+    [0.39, -0.61, 0.15],
+    [1.34, -0.85, -0.46],
+    [1.14, -2.34, -2.55],
+    [0.33, -4.41, -1.86],
+    [-0.73, -5.60, -1.73],
+    [-2.14, -10.20, 1.46],
+    [-1.21, -11.23, 3.08],
+    [-1.87, -9.10, 1.42],
+    [-2.03, -7.70, 1.82],
 ]
 
 # モデル名に設定を反映させて管理しやすくする

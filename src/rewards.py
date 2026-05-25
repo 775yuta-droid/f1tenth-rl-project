@@ -29,12 +29,19 @@ from . import config
 
 
 # ============================================================
-# マップ固有定数 (map_1_0509_145516 実測値)
+# マップ固有定数 (map_3_0525_103844 実測値)
 # ============================================================
-MAP_LIDAR_EFFECTIVE_RANGE = 8.0   # m: マップ実質最大見通し距離
-MAP_WALL_DIST_P50 = 0.40          # m: 壁距離中央値（safety_score の正規化基準）
-MAP_WALL_DIST_P75 = 0.68          # m: 壁距離p75（「安全」の定義上限）
-MAP_WALL_DIST_DANGER = 0.15       # m: 危険ゾーン境界
+MAP_LIDAR_EFFECTIVE_RANGE = 20.0   # [Map-1] 旧8.0 → 20.0
+
+# [Map-2] safety_score 基準を新マップに合わせて再設定
+# 旧: DANGER=0.15 / P50=0.40 / P75=0.68
+# 新: DANGER=0.15 / P25=0.762 をゼロ点に
+#   理由: 新マップは壁距離の中央値が2.5mと広い。
+#         旧のP50=0.40mをそのまま使うと壁から0.5mにいても「安全圏(score=0)」となり
+#         壁際走行への抑止力がゼロになる。
+MAP_WALL_DIST_DANGER = 0.15        # 変更なし（物理的危険境界）
+MAP_WALL_DIST_ZERO   = 0.762       # p25: このラインでsafety_score=0（ゼロ点）
+MAP_WALL_DIST_WARN   = 0.40        # 強ペナルティ境界
 
 BRAKE_TIME_COEFF = 0.8   # 反応時間係数 [s]
 BRAKE_MARGIN     = 0.5   # 余裕距離 [m]
@@ -49,18 +56,18 @@ STRAIGHT_ASYMMETRY_MAX    = 0.15  # この値以下なら「直線」とみな�
 
 @dataclass
 class RewardConfig:
-    reward_collision: float       = -200.0
-    reward_survival: float        = 0.3
-    reward_front_weight: float    = 3.0
-    reward_speed_weight: float    = 1.5
-    reward_safety_weight: float   = 0.8
-    reward_distance_weight: float = 1.0
-    reward_progress_weight: float = 1.0
-    reward_curve_weight: float    = 1.2   # [Fix-R2] カーブステアリング報酬の重み
-    reward_line_weight: float     = 0.5   # 先生提案: レーシングライン誤差ペナルティ重み
-    reward_smooth_weight: float   = 0.1   # 先生提案: 操作量の急変ペナルティ
-    yaw_rate_penalty_weight: float = 1.5  # [Fix-R4] 角速度ペナルティの重み
-    max_speed: float              = 2.5
+    reward_collision: float        = -200.0
+    reward_survival: float         = 0.1
+    reward_front_weight: float     = 0.0    # 廃止維持
+    reward_speed_weight: float     = 2.0
+    reward_safety_weight: float    = 0.8
+    reward_distance_weight: float  = 1.0
+    reward_progress_weight: float  = 10.0
+    reward_curve_weight: float     = 1.2
+    reward_line_weight: float      = 0.5
+    reward_smooth_weight: float    = 0.1
+    yaw_rate_penalty_weight: float = 1.5
+    max_speed: float               = 4.0
 
 
 # グローバルで1回だけ生成して使い回す
@@ -202,13 +209,19 @@ def calculate_reward(
 
     # [Fix-V3] 安全スコアを「減点専用」に変更
     # コース中央にいるだけで加点されるハッキングを防止
+    # [Map-2] 新マップ実測値に基づき、3段階ゾーン評価へ改良
     if wall_dist < MAP_WALL_DIST_DANGER:
         safety_score = -1.0
-    elif wall_dist < MAP_WALL_DIST_P50:
-        t = (wall_dist - MAP_WALL_DIST_DANGER) / (MAP_WALL_DIST_P50 - MAP_WALL_DIST_DANGER)
-        safety_score = -1.0 + t          # [-1.0, 0.0]
+    elif wall_dist < MAP_WALL_DIST_WARN:
+        # DANGER(0.15) → WARN(0.40): 急激なペナルティ（-1.0 → -0.5）
+        t = (wall_dist - MAP_WALL_DIST_DANGER) / (MAP_WALL_DIST_WARN - MAP_WALL_DIST_DANGER)
+        safety_score = -1.0 + 0.5 * t        # [-1.0, -0.5]
+    elif wall_dist < MAP_WALL_DIST_ZERO:
+        # WARN(0.40) → ZERO(0.762): 緩やかなペナルティ（-0.5 → 0.0）
+        t = (wall_dist - MAP_WALL_DIST_WARN) / (MAP_WALL_DIST_ZERO - MAP_WALL_DIST_WARN)
+        safety_score = -0.5 + 0.5 * t        # [-0.5, 0.0]
     else:
-        safety_score = 0.0               # 安全圏では 0.0 (加点なし)
+        safety_score = 0.0                    # 安全圏
 
     reward += safety_score * cfg.reward_safety_weight
 
