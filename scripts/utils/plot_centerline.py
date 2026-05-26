@@ -51,6 +51,10 @@ def plot_centerline_with_map(csv_path):
     heading = np.array(hs)
     curvature = np.array(ks)
 
+    if len(x) == 0:
+        print("[Error] CSVファイルにポイントデータが含まれていません。プロットを中止します。")
+        return
+
     img, res, origin = load_map_info(csv_path)
 
     plt.figure(figsize=(12, 12))

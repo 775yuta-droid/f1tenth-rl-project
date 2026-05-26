@@ -96,6 +96,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--map", type=str, default=config.MAP_PATH)
     parser.add_argument("--reverse", action="store_true", help="進行方向を逆にする")
+    parser.add_argument("--mask-box", type=float, nargs=4, action="append", metavar=('XMIN', 'XMAX', 'YMIN', 'YMAX'),
+                        help="除外したい矩形領域の物理座標 [xmin, xmax, ymin, ymax] (複数指定可)")
+    parser.add_argument("--min-width", type=float, default=0.0,
+                        help="最小道路幅（メートル）。これより狭い道を塞ぎます。")
     args = parser.parse_args()
 
     prob, res, origin, yaml_free_thresh = load_map(args.map)
@@ -103,6 +107,35 @@ def main():
 
     # グレー領域対策
     free_mask = (prob < 0.1) if np.any((prob > 0.15) & (prob < 0.22)) else (prob < yaml_free_thresh)
+
+    # 道路幅によるフィルタリング
+    if args.min_width > 0.0:
+        print(f"[INFO] 道路幅が {args.min_width}m 未満の経路を除外します。")
+        dt = ndimage.distance_transform_edt(free_mask)
+        # 距離変換の値は半径に相当するため、直径（道路幅）= dt * 2 * res
+        min_width_px = args.min_width / (2.0 * res)
+        free_mask = free_mask & (dt >= min_width_px)
+
+    # 特定の物理座標領域をマスクする
+    if args.mask_box:
+        for box in args.mask_box:
+            xmin, xmax, ymin, ymax = box
+            print(f"[INFO] 物理座標 x:[{xmin}, {xmax}], y:[{ymin}, {ymax}] の領域を除外します。")
+            
+            # 物理座標から画像ピクセルインデックスへの変換
+            r_min = int((H - 1) - (ymax - origin[1]) / res)
+            r_max = int((H - 1) - (ymin - origin[1]) / res)
+            c_min = int((xmin - origin[0]) / res)
+            c_max = int((xmax - origin[0]) / res)
+            
+            # インデックスの順序を補正して画像サイズ内にクリップ
+            r_start = max(0, min(r_min, r_max))
+            r_end = min(H, max(r_min, r_max))
+            c_start = max(0, min(c_min, c_max))
+            c_end = min(W, max(c_min, c_max))
+            
+            # 指定された範囲を障害物(False)にする
+            free_mask[r_start:r_end, c_start:c_end] = False
 
     print("[1/3] 骨格線を抽出中...")
     skeleton = prune_skeleton(skeletonize(free_mask))
@@ -113,6 +146,14 @@ def main():
 
     print("[2/3] 点列を順序付け中...")
     ordered = order_points_robust(skeleton, (start_row, start_col))
+    
+    if not ordered:
+        print("[ERROR] センターラインの点が検出されませんでした。")
+        print("以下の原因が考えられます：")
+        print("1. マスク範囲 (--mask-box) が広すぎて、スタート位置やコース全体を塞いでしまっている。")
+        print("2. 最小道路幅 (--min-width) が大きすぎて、コースの狭い部分でループが分断されている。")
+        print("引数や座標の指定内容を確認してください。")
+        sys.exit(1)
     
     if args.reverse:
         print("[INFO] 進行方向を逆にします。")
